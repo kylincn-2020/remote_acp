@@ -11,3 +11,5 @@ pnpm-debug.log*
 
 .DS_Store
 Thumbs.db
+
+connector.projects.json

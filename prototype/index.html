@@ -422,6 +422,38 @@
         line-height: 1.35;
       }
 
+      .home-summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .home-tile {
+        display: grid;
+        gap: 4px;
+        min-height: 76px;
+        padding: 12px;
+        border: 1px solid #e1e8f2;
+        border-radius: 14px;
+        background: #fff;
+      }
+
+      .home-tile.active {
+        border-color: rgba(103, 89, 232, 0.5);
+        background: #f6f5ff;
+      }
+
+      .home-tile strong {
+        color: #1c283d;
+        font-size: 15px;
+      }
+
+      .home-tile span {
+        color: #7b8798;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
       .count-pill {
         min-width: 30px;
         height: 24px;
@@ -864,6 +896,117 @@
         white-space: nowrap;
       }
 
+      .project-panel {
+        display: grid;
+        gap: 9px;
+        padding: 10px;
+        border: 1px solid #e1e8f2;
+        border-radius: 16px;
+        background: #fff;
+      }
+
+      details.project-panel {
+        display: block;
+      }
+
+      details.project-panel[open] .project-sessions {
+        margin-top: 9px;
+      }
+
+      .project-panel summary.project-head {
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .project-panel summary.project-head::-webkit-details-marker {
+        display: none;
+      }
+
+      .project-toggle {
+        color: #7f8ba0;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .project-panel[open] .project-toggle::before {
+        content: "▾";
+      }
+
+      .project-panel:not([open]) .project-toggle::before {
+        content: "▸";
+      }
+
+      .project-head {
+        display: grid;
+        grid-template-columns: 34px 1fr auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .project-action {
+        height: 30px;
+        display: inline-flex;
+        align-items: center;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: #eef3ff;
+        color: var(--purple);
+        font-size: 11px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .project-sessions {
+        display: grid;
+        gap: 7px;
+        padding-left: 44px;
+      }
+
+      .project-session {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+        min-height: 42px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: #f4f7fb;
+      }
+
+      .project-session.active {
+        background: #eef8f2;
+      }
+
+      .project-session-title {
+        color: #1f2d44;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .project-session-meta {
+        margin-top: 2px;
+        color: #7b8798;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .project-add {
+        display: grid;
+        grid-template-columns: 34px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 54px;
+        padding: 9px 10px;
+        border: 1px dashed #bcc7d8;
+        border-radius: 15px;
+        background: #fbfcff;
+      }
+
+      .project-add .folder {
+        background: #eef3ff;
+        color: var(--purple);
+      }
+
 
       .project.selected,
       .model-option.selected {
@@ -1032,14 +1175,14 @@
           <span class="tag">创建 Session</span>
           <span class="tag">Model 选择</span>
           <span class="tag">Mode 切换</span>
-          <span class="tag">Session 列表</span>
+          <span class="tag">项目 / Session</span>
           <span class="tag">聊天 + 文件 + 定时任务</span>
         </div>
       </header>
 
       <section class="frames">
         <div class="frame-wrap">
-          <div class="caption">1. 小程序首页</div>
+          <div class="caption">1. 首页 · 审批 tab</div>
           <div class="phone">
             <div class="miniapp">
               <div class="status">
@@ -1052,23 +1195,27 @@
                 <div></div>
               </div>
               <div class="content">
-                <div class="module-grid">
-                  <div class="module-card">
-                    <div class="module-icon">审</div>
-                    <div>
-                      <div class="module-title">移动审批</div>
-                      <div class="module-desc">查看待办审批，跟踪我发起的申请</div>
+                <div class="timeline">
+                  <div class="home-summary">
+                    <div class="home-tile active">
+                      <strong>待办</strong>
+                      <span>6 个待处理审批</span>
                     </div>
-                    <div class="count-pill">8</div>
-                  </div>
-                  <div class="module-card">
-                    <div class="module-icon">AI</div>
-                    <div>
-                      <div class="module-title">Agent</div>
-                      <div class="module-desc">选择后端 Agent，创建 Session 后开始对话</div>
+                    <div class="home-tile">
+                      <strong>申请</strong>
+                      <span>5 个我发起的事项</span>
                     </div>
-                    <div class="session-time">进入</div>
                   </div>
+                  <details class="approval-group" open>
+                    <summary class="approval-group-title"><span class="approval-group-name">采购审批</span><span class="approval-count">2</span></summary>
+                    <div class="approval-link">采购申请 · MacBook Pro</div>
+                    <div class="approval-link">采购申请 · 测试设备一批</div>
+                  </details>
+                  <details class="approval-group" open>
+                    <summary class="approval-group-title"><span class="approval-group-name">人事审批</span><span class="approval-count">3</span></summary>
+                    <div class="approval-link">请假申请 · 年假 2 天</div>
+                    <div class="approval-link">加班申请 · 项目发布支持</div>
+                  </details>
                 </div>
               </div>
               <div class="bottom-tabs">
@@ -1080,7 +1227,60 @@
         </div>
 
         <div class="frame-wrap">
-          <div class="caption">2. 移动审批 · 待办</div>
+          <div class="caption">2. 首页 · Agent tab</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">办公助手</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="timeline">
+                  <div class="notice">● Agent 列表由后端读取；点击某个 Agent 后展示共享项目列表和该 Agent 的 Session。</div>
+                  <div class="agent-option selected">
+                    <div class="agent-logo">OC</div>
+                    <div>
+                      <div class="primary">OpenCode</div>
+                      <div class="secondary">本地 ACP · 已连接</div>
+                      <div class="agent-meta"><span class="agent-badge online">可用</span><span class="agent-badge">13 个 Session</span></div>
+                    </div>
+                    <div class="check">进入</div>
+                  </div>
+                  <div class="agent-option">
+                    <div class="agent-logo">CX</div>
+                    <div>
+                      <div class="primary">Codex</div>
+                      <div class="secondary">远程 Agent · 可用</div>
+                      <div class="agent-meta"><span class="agent-badge">可用</span><span class="agent-badge">Git 集成</span></div>
+                    </div>
+                    <div class="session-time">进入</div>
+                  </div>
+                  <div class="agent-option">
+                    <div class="agent-logo">CC</div>
+                    <div>
+                      <div class="primary">Claude Code</div>
+                      <div class="secondary">终端 Agent · 可用</div>
+                      <div class="agent-meta"><span class="agent-badge">可用</span><span class="agent-badge">长上下文</span></div>
+                    </div>
+                    <div class="session-time">进入</div>
+                  </div>
+                </div>
+              </div>
+              <div class="bottom-tabs">
+                <div class="bottom-tab"><strong>✓</strong><span>审批</span></div>
+                <div class="bottom-tab active"><strong>◎</strong><span>Agent</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">3. 移动审批 · 待办</div>
           <div class="phone">
             <div class="miniapp">
               <div class="status">
@@ -1124,7 +1324,7 @@
         </div>
 
         <div class="frame-wrap">
-          <div class="caption">3. 移动审批 · 申请</div>
+          <div class="caption">4. 移动审批 · 申请</div>
           <div class="phone">
             <div class="miniapp">
               <div class="status">
@@ -1171,7 +1371,7 @@
         </div>
 
         <div class="frame-wrap">
-          <div class="caption">4. Agent 列表首页</div>
+          <div class="caption">5. Agent 列表首页</div>
           <div class="phone">
             <div class="miniapp">
               <div class="status">
@@ -1180,20 +1380,20 @@
               </div>
               <div class="nav">
                 <div class="back">‹</div>
-                <div class="nav-title">Agent 列表<span class="nav-sub">选择一个 Agent 开始</span></div>
+                <div class="nav-title">Agent 列表<span class="nav-sub">选择一个 Agent</span></div>
                 <div></div>
               </div>
 
               <div class="content">
                 <div class="timeline">
-                  <div class="notice">● Agent 列表由后端读取；点击任意 Agent 进入聊天窗口。</div>
+                  <div class="notice">● Agent 列表由后端读取；点击某个 Agent 后展示共享项目列表和该 Agent 的 Session。</div>
 
                   <div class="agent-option selected">
                     <div class="agent-logo">OC</div>
                     <div>
                       <div class="primary">OpenCode</div>
-                      <div class="secondary">本地 ACP · E:\develop\AI\remote_acp</div>
-                      <div class="agent-meta"><span class="agent-badge online">已连接</span><span class="agent-badge">12 个 Session</span><span class="agent-badge">构建模式</span></div>
+                      <div class="secondary">本地 ACP · 已连接</div>
+                      <div class="agent-meta"><span class="agent-badge online">可用</span><span class="agent-badge">13 个 Session</span><span class="agent-badge">支持项目</span></div>
                     </div>
                     <div class="check">进入</div>
                   </div>
@@ -1202,7 +1402,7 @@
                     <div class="agent-logo">CX</div>
                     <div>
                       <div class="primary">Codex</div>
-                      <div class="secondary">后端返回 · 适合代码审查和改造</div>
+                      <div class="secondary">远程 Agent · 可用</div>
                       <div class="agent-meta"><span class="agent-badge">可用</span><span class="agent-badge">Git 集成</span></div>
                     </div>
                     <div class="session-time">进入</div>
@@ -1212,8 +1412,8 @@
                     <div class="agent-logo">CC</div>
                     <div>
                       <div class="primary">Claude Code</div>
-                      <div class="secondary">后端返回 · 适合长上下文任务</div>
-                      <div class="agent-meta"><span class="agent-badge">可用</span><span class="agent-badge">终端代理</span></div>
+                      <div class="secondary">终端 Agent · 可用</div>
+                      <div class="agent-meta"><span class="agent-badge">可用</span><span class="agent-badge">长上下文</span></div>
                     </div>
                     <div class="session-time">进入</div>
                   </div>
@@ -1230,7 +1430,7 @@
         </div>
 
         <div class="frame-wrap">
-          <div class="caption">5. Agent 聊天窗口</div>
+          <div class="caption">6. OpenCode · 项目与 Session</div>
           <div class="phone">
             <div class="miniapp">
               <div class="status">
@@ -1244,52 +1444,101 @@
               </div>
 
               <div class="content">
-                <div class="session-actions">
-                  <div class="session-action">新建 Session</div>
-                  <div class="session-action secondary-session-action">Session 列表</div>
-                </div>
-                <div class="session-strip">
-                  <div>
-                    <div class="session-strip-title">当前 Session · 正在运行</div>
-                    <div class="session-strip-meta">remote_acp · gpt-5.4 · 构建模式</div>
-                    <div class="session-summary"><span class="agent-badge">项目在创建时选择</span><span class="agent-badge">可恢复历史 Session</span></div>
-                  </div>
-                  <div class="session-strip-action">Session 列表</div>
-                </div>
-
                 <div class="timeline">
-                  <div class="notice">● OpenCode 运行在 E:\develop\AI\remote_acp，当前模式允许编辑文件和执行构建命令。</div>
+                  <div class="notice">● 项目是共享配置；这里展示 OpenCode 在每个项目下的 Session，项目可折叠。</div>
 
-                  <div class="msg user">
-                    <div class="bubble">帮我看下项目结构，然后做一个远程控制入口。</div>
+                  <div class="project-add">
+                    <div class="folder">＋</div>
+                    <div>
+                      <div class="primary">新增项目</div>
+                      <div class="secondary">输入本机项目目录路径，保存后所有 Agent 可用</div>
+                    </div>
+                    <div class="project-action">添加</div>
                   </div>
 
-                  <div class="msg">
-                    <div class="avatar">OC</div>
-                    <div class="bubble">
-                      <strong>OpenCode</strong>
-                      我会先读取目录、识别技术栈，再给出可执行的改动计划。
-                      <div class="tool-call">
-                        <div class="tool-item"><span>读取项目文件</span><span>完成</span></div>
-                        <div class="tool-item"><span>检查 package 配置</span><span>进行中</span></div>
+                  <details class="project-panel" open>
+                    <summary class="project-head">
+                      <div class="folder">⌂</div>
+                      <div>
+                        <div class="primary">remote_acp</div>
+                        <div class="secondary">E:\develop\AI\remote_acp</div>
+                      </div>
+                      <div class="project-toggle"></div>
+                    </summary>
+                    <div class="project-sessions">
+                      <div class="project-session">
+                        <div>
+                          <div class="project-session-title">新建 Session</div>
+                          <div class="project-session-meta">模型和模式在创建时选择</div>
+                        </div>
+                        <div class="project-action">新建</div>
+                      </div>
+                      <div class="project-session active">
+                        <div>
+                          <div class="project-session-title">当前会话 · 小程序原型</div>
+                          <div class="project-session-meta">刚刚 · gpt-5.4 · 构建</div>
+                        </div>
+                        <div class="session-time">进入</div>
+                      </div>
+                      <div class="project-session">
+                        <div>
+                          <div class="project-session-title">ACP connector 验证</div>
+                          <div class="project-session-meta">昨天 · OpenCode · plan</div>
+                        </div>
+                        <div class="session-time">恢复</div>
                       </div>
                     </div>
-                  </div>
+                  </details>
+
+                  <details class="project-panel" open>
+                    <summary class="project-head">
+                      <div class="folder">⌂</div>
+                      <div>
+                        <div class="primary">web-client</div>
+                        <div class="secondary">E:\develop\web-client</div>
+                      </div>
+                      <div class="project-toggle"></div>
+                    </summary>
+                    <div class="project-sessions">
+                      <div class="project-session">
+                        <div>
+                          <div class="project-session-title">新建 Session</div>
+                          <div class="project-session-meta">OpenCode · build / plan</div>
+                        </div>
+                        <div class="project-action">新建</div>
+                      </div>
+                      <div class="project-session">
+                        <div>
+                          <div class="project-session-title">登录页 UI 调整</div>
+                          <div class="project-session-meta">12 分钟前 · build</div>
+                        </div>
+                        <div class="session-time">进入</div>
+                      </div>
+                    </div>
+                  </details>
+
+                  <details class="project-panel">
+                    <summary class="project-head">
+                      <div class="folder">⌂</div>
+                      <div>
+                        <div class="primary">OpenHarness</div>
+                        <div class="secondary">E:\develop\AI\OpenHarness</div>
+                      </div>
+                      <div class="project-toggle"></div>
+                    </summary>
+                    <div class="project-sessions">
+                      <div class="project-session">
+                        <div>
+                          <div class="project-session-title">新建 Session</div>
+                          <div class="project-session-meta">暂无 OpenCode 历史 Session</div>
+                        </div>
+                        <div class="project-action">新建</div>
+                      </div>
+                    </div>
+                  </details>
                 </div>
               </div>
 
-              <div class="composer">
-                <div class="input-box">
-                  <div class="placeholder">OpenCode，发消息、上传文件、打开文件夹或创建定时任务…</div>
-                  <div class="toolbar">
-                    <button class="icon-btn">+</button>
-                    <button class="mini-chip"><span>◈</span><span class="clip">默认模型</span></button>
-                    <button class="mini-chip"><span>🛡</span><span class="clip">构建</span></button>
-                    <button class="send">↑</button>
-                  </div>
-                </div>
-                <div class="safe"></div>
-              </div>
               <div class="bottom-tabs">
                 <div class="bottom-tab"><strong>✓</strong><span>审批</span></div>
                 <div class="bottom-tab active"><strong>◎</strong><span>Agent</span></div>
@@ -1299,7 +1548,7 @@
         </div>
 
         <div class="frame-wrap">
-          <div class="caption">6. 创建 Session</div>
+          <div class="caption">7. 新增项目</div>
           <div class="phone">
             <div class="miniapp">
               <div class="status">
@@ -1313,21 +1562,77 @@
               </div>
               <div class="content">
                 <div class="timeline">
-                  <div class="notice">● 创建 Session 时选择项目、模型和模式；创建后聊天窗口只显示当前 Session 摘要。</div>
-                  <div class="project selected">
-                    <div class="folder">⌂</div>
-                    <div><div class="primary">remote_acp</div><div class="secondary">E:\develop\AI\remote_acp</div></div>
-                    <div class="check">✓</div>
-                  </div>
-                  <div class="project">
-                    <div class="folder">⌂</div>
-                    <div><div class="primary">web-client</div><div class="secondary">最近使用 · 12 分钟前</div></div>
-                    <div></div>
-                  </div>
-                  <div class="project">
+                  <div class="notice">● 从 OpenCode 的项目列表添加；小程序不能读取本机目录，目录由用户手动输入或粘贴。</div>
+                  <div class="project-add">
                     <div class="folder">＋</div>
-                    <div><div class="primary">打开新文件夹</div><div class="secondary">从后端项目列表选择或授权新目录</div></div>
-                    <div></div>
+                    <div>
+                      <div class="primary">新增项目</div>
+                      <div class="secondary">保存到共享项目列表，其他 Agent 也能使用</div>
+                    </div>
+                    <div class="project-action">添加</div>
+                  </div>
+                </div>
+              </div>
+              <div class="sheet-mask"></div>
+              <div class="sheet">
+                <div class="sheet-head">
+                  <div class="sheet-title">新增项目</div>
+                  <button class="close">×</button>
+                </div>
+                <div class="sheet-body">
+                  <div class="list">
+                    <div class="project">
+                      <div class="folder">名</div>
+                      <div><div class="primary">项目名称</div><div class="secondary">remote_acp</div></div>
+                      <div></div>
+                    </div>
+                    <div class="project">
+                      <div class="folder">⌂</div>
+                      <div><div class="primary">项目目录</div><div class="secondary">手动输入：E:\develop\AI\remote_acp</div></div>
+                      <div></div>
+                    </div>
+                  </div>
+                  <div class="sheet-actions">
+                    <button class="action">取消</button>
+                    <button class="action primary-action">保存项目</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">8. 在项目下创建 Session</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">OpenCode</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="timeline">
+                  <div class="notice">● 从 remote_acp 项目里的 OpenCode 右侧“新建”进入；项目已确定，只选择模型和模式。</div>
+                  <div class="project-panel">
+                    <div class="project-head">
+                      <div class="agent-logo">OC</div>
+                      <div><div class="primary">OpenCode · remote_acp</div><div class="secondary">E:\develop\AI\remote_acp</div></div>
+                      <div class="project-action">新建</div>
+                    </div>
+                    <div class="project-sessions">
+                      <div class="project-session active">
+                        <div>
+                          <div class="project-session-title">当前会话 · 小程序原型</div>
+                          <div class="project-session-meta">刚刚 · gpt-5.4 · 构建</div>
+                        </div>
+                        <div class="session-time">进入</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1338,7 +1643,7 @@
                   <button class="close">×</button>
                 </div>
                 <div class="sheet-body">
-                  <div class="search">已选择项目：remote_acp</div>
+                  <div class="search">项目：remote_acp · E:\develop\AI\remote_acp</div>
                   <div class="list">
                     <div class="project">
                       <div class="model-logo">5</div>
@@ -1362,7 +1667,7 @@
         </div>
 
         <div class="frame-wrap">
-          <div class="caption">7. 当前 Session 设置</div>
+          <div class="caption">9. 进入 Session 聊天窗口</div>
           <div class="phone">
             <div class="miniapp">
               <div class="status">
@@ -1376,7 +1681,63 @@
               </div>
               <div class="content">
                 <div class="timeline">
-                  <div class="notice">● 当前 Session 只允许调整模型和模式；项目在创建 Session 时确定。</div>
+                  <div class="notice">● 从项目下的 Session 进入聊天；项目不在聊天框里切换。</div>
+                  <div class="msg user">
+                    <div class="bubble">帮我看下项目结构，然后做一个远程控制入口。</div>
+                  </div>
+                  <div class="msg">
+                    <div class="avatar">OC</div>
+                    <div class="bubble">
+                      <strong>OpenCode</strong>
+                      我会先读取目录、识别技术栈，再给出可执行的改动计划。
+                      <div class="tool-call">
+                        <div class="tool-item"><span>读取项目文件</span><span>完成</span></div>
+                        <div class="tool-item"><span>检查 package 配置</span><span>进行中</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="composer">
+                <div class="input-box">
+                  <div class="placeholder">OpenCode，发消息、上传文件、打开文件或创建定时任务…</div>
+                  <div class="toolbar">
+                    <button class="icon-btn">+</button>
+                    <button class="mini-chip"><span>◈</span><span class="clip">默认模型</span></button>
+                    <button class="mini-chip"><span>🛡</span><span class="clip">构建</span></button>
+                    <button class="send">↑</button>
+                  </div>
+                </div>
+                <div class="safe"></div>
+              </div>
+              <div class="bottom-tabs">
+                <div class="bottom-tab"><strong>✓</strong><span>审批</span></div>
+                <div class="bottom-tab active"><strong>◎</strong><span>Agent</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">10. 当前 Session 设置</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">OpenCode</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="timeline">
+                  <div class="notice">● 当前 Session 只允许调整模型和模式；项目在项目页创建 Session 时确定。</div>
+                  <div class="msg">
+                    <div class="avatar">OC</div>
+                    <div class="bubble"><strong>OpenCode</strong>当前 session 正在处理 remote_acp 的小程序原型和 ACP 连接器。</div>
+                  </div>
                 </div>
               </div>
               <div class="sheet-mask"></div>
@@ -1401,14 +1762,14 @@
                   <div class="section-label">运行模式</div>
                   <div class="mode-list">
                     <div class="mode-card">
-                      <div class="mode-icon">R</div>
-                      <div class="mode-title">只读</div>
-                      <div class="mode-desc">查看和分析</div>
+                      <div class="mode-icon">P</div>
+                      <div class="mode-title">计划</div>
+                      <div class="mode-desc">只分析规划</div>
                     </div>
                     <div class="mode-card selected">
                       <div class="mode-icon">B</div>
                       <div class="mode-title">构建</div>
-                      <div class="mode-desc">编辑和验证</div>
+                      <div class="mode-desc">编辑验证</div>
                     </div>
                     <div class="mode-card">
                       <div class="mode-icon">A</div>
@@ -1419,75 +1780,6 @@
                   <div class="sheet-actions">
                     <button class="action">恢复默认</button>
                     <button class="action primary-action">应用</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="frame-wrap">
-          <div class="caption">8. 查看 Session 列表</div>
-          <div class="phone">
-            <div class="miniapp">
-              <div class="status">
-                <span>9:41</span>
-                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
-              </div>
-              <div class="nav">
-                <div class="back">‹</div>
-                <div class="nav-title">OpenCode</div>
-                <div></div>
-              </div>
-              <div class="content">
-                <div class="timeline">
-                  <div class="notice">● 从当前 Session 摘要打开列表，可恢复历史会话或查看运行中的任务。</div>
-                  <div class="msg">
-                    <div class="avatar">OC</div>
-                    <div class="bubble"><strong>OpenCode</strong>当前 session 正在处理 remote_acp 的小程序原型和 ACP 连接器。</div>
-                  </div>
-                </div>
-              </div>
-              <div class="sheet-mask"></div>
-              <div class="sheet">
-                <div class="sheet-head">
-                  <div class="sheet-title">Session 列表</div>
-                  <button class="close">×</button>
-                </div>
-                <div class="sheet-body">
-                  <div class="search">⌕ 搜索 session、项目或关键词</div>
-                  <div class="list">
-                    <div class="session-option active">
-                      <div class="session-dot"></div>
-                      <div>
-                        <div class="primary">当前会话 · remote_acp</div>
-                        <div class="secondary">正在设计小程序 UI 和 ACP connector</div>
-                        <div class="agent-meta"><span class="agent-badge online">运行中</span><span class="agent-badge">OpenCode</span><span class="agent-badge">构建模式</span></div>
-                      </div>
-                      <div class="session-time">刚刚</div>
-                    </div>
-                    <div class="session-option">
-                      <div class="session-dot"></div>
-                      <div>
-                        <div class="primary">前端原型调整</div>
-                        <div class="secondary">Agent 选择入口、底部输入栏布局</div>
-                        <div class="agent-meta"><span class="agent-badge">已暂停</span><span class="agent-badge">OpenCode</span></div>
-                      </div>
-                      <div class="session-time">17:12</div>
-                    </div>
-                    <div class="session-option">
-                      <div class="session-dot"></div>
-                      <div>
-                        <div class="primary">连接器验证</div>
-                        <div class="secondary">本地 stdio 和远程 WebSocket 方案</div>
-                        <div class="agent-meta"><span class="agent-badge">已完成</span><span class="agent-badge">Codex</span></div>
-                      </div>
-                      <div class="session-time">昨天</div>
-                    </div>
-                  </div>
-                  <div class="sheet-actions">
-                    <button class="action">新建 Session</button>
-                    <button class="action primary-action">恢复会话</button>
                   </div>
                 </div>
               </div>
