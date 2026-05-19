@@ -22,13 +22,23 @@ type EventClient = {
 };
 
 type JsonObject = Record<string, unknown>;
+type HistoryCapture = {
+  sessionId: string;
+  updates: unknown[];
+};
 
 export async function startAcpHttpServer(options: AcpHttpServerOptions) {
   const clients = new Set<EventClient>();
+  const historyCaptures = new Set<HistoryCapture>();
   const connector = await createAcpConnector({
     ...options,
     onSessionUpdate: async (notification) => {
       await options.onSessionUpdate?.(notification);
+      for (const capture of historyCaptures) {
+        if (capture.sessionId === notification.sessionId) {
+          capture.updates.push(notification.update);
+        }
+      }
       const payload = JSON.stringify(notification);
       for (const client of clients) {
         if (client.sessionId && client.sessionId !== notification.sessionId) {
@@ -124,13 +134,36 @@ export async function startAcpHttpServer(options: AcpHttpServerOptions) {
 
       if (request.method === "POST" && path === "/sessions/load") {
         const body = await readJson(request);
+        const sessionId = requireString(body, "sessionId");
         const session = await connector.loadSession({
-          sessionId: requireString(body, "sessionId"),
+          sessionId,
           cwd: requireString(body, "cwd"),
           additionalDirectories: optionalStringArray(body.additionalDirectories),
           mcpServers: Array.isArray(body.mcpServers) ? body.mcpServers : [],
         });
         sendJson(response, 200, session);
+        return;
+      }
+
+      if (request.method === "POST" && path === "/sessions/history") {
+        const body = await readJson(request);
+        const sessionId = requireString(body, "sessionId");
+        const capture: HistoryCapture = { sessionId, updates: [] };
+        historyCaptures.add(capture);
+        try {
+          const session = await connector.loadSession({
+            sessionId,
+            cwd: requireString(body, "cwd"),
+            additionalDirectories: optionalStringArray(body.additionalDirectories),
+            mcpServers: Array.isArray(body.mcpServers) ? body.mcpServers : [],
+          });
+          sendJson(response, 200, {
+            session,
+            updates: capture.updates,
+          });
+        } finally {
+          historyCaptures.delete(capture);
+        }
         return;
       }
 

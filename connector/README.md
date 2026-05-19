@@ -34,6 +34,7 @@ Endpoints:
 - `GET /sessions?cwd=<absolute-path>&cursor=<cursor>`
 - `POST /sessions`
 - `POST /sessions/load`
+- `POST /sessions/history`
 - `POST /sessions/resume`
 - `POST /sessions/:sessionId/messages`
 - `POST /sessions/:sessionId/mode`

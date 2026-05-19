@@ -54,6 +54,7 @@ const state = {
   openProjectIds: new Set(),
   currentProject: null,
   currentSession: null,
+  currentSessionId: null,
   eventSource: null,
   messages: [],
   toolMessageIndexes: new Map(),
@@ -419,7 +420,7 @@ async function openSession(project, sessionId, button) {
       method: "POST",
       body: { sessionId, cwd: project.cwd },
     });
-    await enterChat(project, session);
+    await enterChat(project, session, { loadHistory: true });
   } finally {
     if (button) {
       button.disabled = false;
@@ -428,9 +429,10 @@ async function openSession(project, sessionId, button) {
   }
 }
 
-async function enterChat(project, session) {
+async function enterChat(project, session, options = {}) {
   state.currentProject = project;
   state.currentSession = session;
+  state.currentSessionId = session.sessionId;
   state.messages = [];
   state.toolMessageIndexes = new Map();
   state.pendingThought = null;
@@ -439,6 +441,9 @@ async function enterChat(project, session) {
   showView("chat");
   connectEvents(session.sessionId);
   replaySession(session);
+  if (options.loadHistory) {
+    loadSessionHistory(project, session.sessionId);
+  }
 }
 
 function replaySession(session) {
@@ -462,6 +467,112 @@ function collectSessionHistory(session) {
     collectHistoryMessages(field, messages);
   }
   return messages;
+}
+
+async function loadSessionHistory(project, sessionId) {
+  try {
+    const result = await api("/sessions/history", {
+      method: "POST",
+      body: { sessionId, cwd: project.cwd },
+    });
+    if (state.currentSessionId !== sessionId || !Array.isArray(result.updates)) {
+      return;
+    }
+    prependHistory(result.updates);
+  } catch (error) {
+    console.warn("Failed to load session history", error);
+  }
+}
+
+function prependHistory(updates) {
+  const events = [];
+  for (const update of updates) {
+    collectHistoryMessages(update, events);
+  }
+
+  const existingKeys = new Set(state.messages.map(messageKey));
+  const historyMessages = [];
+  for (const event of events) {
+    const message = eventToStateMessage(event);
+    if (!message) continue;
+    const key = messageKey(message);
+    if (existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    historyMessages.push(message);
+  }
+
+  if (historyMessages.length === 0) {
+    return;
+  }
+
+  state.messages.unshift(...historyMessages);
+  rebuildToolIndexes();
+  clearMessages();
+  for (const message of state.messages) {
+    mountMessage(message);
+  }
+}
+
+function eventToStateMessage(event) {
+  if (event.kind === "message") {
+    const text = event.text.trim();
+    if (!text) return null;
+    return {
+      role: event.role,
+      text: event.role === "agent" ? normalizeAnswerText(text) : text,
+      messageId: event.messageId,
+    };
+  }
+
+  if (event.kind === "thought") {
+    const text = event.text.trim();
+    if (!text) return null;
+    return {
+      role: "process",
+      processType: "thought",
+      title: "思考过程",
+      text,
+      messageId: event.messageId,
+      open: true,
+    };
+  }
+
+  if (event.kind === "tool") {
+    return {
+      role: "process",
+      processType: "tool",
+      toolCallId: event.toolCallId,
+      toolKind: event.toolKind,
+      title: toolTitle(event),
+      status: event.status,
+      statusText: toolStatusText(event.status),
+      text: event.text,
+      items: event.items,
+      open: event.status !== "completed",
+    };
+  }
+
+  return null;
+}
+
+function messageKey(message) {
+  return [
+    message.role,
+    message.processType || "",
+    message.messageId || "",
+    message.toolCallId || "",
+    message.text || "",
+    message.title || "",
+  ].join("|");
+}
+
+function rebuildToolIndexes() {
+  state.toolMessageIndexes = new Map();
+  state.messages.forEach((message, index) => {
+    if (message.toolCallId) {
+      state.toolMessageIndexes.set(message.toolCallId, index);
+    }
+  });
 }
 
 function connectEvents(sessionId) {
