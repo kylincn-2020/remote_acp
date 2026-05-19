@@ -1,0 +1,31 @@
+{
+  "target": {
+    "kind": "local",
+    "command": "E:\\data\\nodejs\\node_global\\node_modules\\opencode-ai\\bin\\opencode.exe",
+    "args": ["acp"],
+    "cwd": "E:\\develop\\AI\\remote_acp"
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 17890,
+    "wsPort": 17891,
+    "token": ""
+  },
+  "permissions": {
+    "exposeFileSystem": false,
+    "exposeTerminal": false,
+    "autoApprovePermission": false
+  },
+  "allowedRoots": ["E:\\develop\\AI\\remote_acp"],
+  "client": {
+    "name": "remote-acp",
+    "version": "0.1.0"
+  },
+  "projects": [
+    {
+      "id": "remote_acp",
+      "name": "remote_acp",
+      "cwd": "E:\\develop\\AI\\remote_acp"
+    }
+  ]
+}

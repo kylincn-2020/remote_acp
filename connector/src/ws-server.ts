@@ -1,7 +1,8 @@
 import { fileURLToPath } from "node:url";
 import WebSocket, { WebSocketServer } from "ws";
 import * as acp from "@agentclientprotocol/sdk";
-import { createAcpConnector, type AcpConnectorOptions, type AcpTarget } from "./index.js";
+import { loadConnectorServerConfig } from "./config.js";
+import { createAcpConnector, type AcpConnectorOptions } from "./index.js";
 import {
   readProjects,
   removeProject,
@@ -275,47 +276,12 @@ function isAuthorized(url: string, authorization: string | undefined, token?: st
   return authorization === `Bearer ${token}` || queryToken === token;
 }
 
-function targetFromEnv(): AcpTarget {
-  if (process.env.ACP_WS_URL) {
-    return {
-      kind: "websocket",
-      url: process.env.ACP_WS_URL,
-      headers: process.env.ACP_AUTH_TOKEN
-        ? {
-            Authorization: `Bearer ${process.env.ACP_AUTH_TOKEN}`,
-          }
-        : undefined,
-    };
-  }
-
-  if (!process.env.ACP_COMMAND) {
-    throw new Error("Set ACP_COMMAND or ACP_WS_URL before starting the WebSocket connector.");
-  }
-
-  return {
-    kind: "local",
-    command: process.env.ACP_COMMAND,
-    args: process.env.ACP_ARGS ? (JSON.parse(process.env.ACP_ARGS) as string[]) : [],
-    cwd: process.env.ACP_CWD ?? process.cwd(),
-  };
-}
-
 function isDirectRun() {
   return process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 }
 
 if (isDirectRun()) {
-  const port = process.env.PORT ? Number(process.env.PORT) : 17891;
-  const host = process.env.HOST ?? "127.0.0.1";
-  await startAcpWebSocketServer({
-    target: targetFromEnv(),
-    allowedRoots: [process.env.ACP_CWD ?? process.cwd()],
-    exposeFileSystem: process.env.ACP_EXPOSE_FS === "1",
-    exposeTerminal: process.env.ACP_EXPOSE_TERMINAL === "1",
-    autoApprovePermission: process.env.ACP_AUTO_APPROVE === "1",
-    token: process.env.CONNECTOR_TOKEN,
-    host,
-    port,
-  });
+  const { host, port, ...options } = await loadConnectorServerConfig("ws");
+  await startAcpWebSocketServer({ ...options, host, port });
   console.log(`ACP WebSocket connector listening on ws://${host}:${port}`);
 }

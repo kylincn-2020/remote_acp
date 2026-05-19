@@ -12,22 +12,14 @@ This module wraps `@agentclientprotocol/sdk` and exposes both raw ACP methods an
 
 Run a local HTTP wrapper around the ACP connector:
 
-```bash
-ACP_COMMAND="opencode"
-ACP_ARGS='["acp"]'
-ACP_CWD="/path/to/project"
-npm run dev:connector:http
-```
-
-On Windows, prefer the real executable path when a PowerShell shim cannot be spawned:
-
 ```powershell
-$env:ACP_COMMAND="E:\data\nodejs\node_global\node_modules\opencode-ai\bin\opencode.exe"
-$env:ACP_ARGS='["acp"]'
-$env:ACP_CWD="E:\develop\AI\remote_acp"
-$env:CONNECTOR_TOKEN="dev-token"
-npm run dev:connector:http
+cd connector
+npm run dev:http
 ```
+
+By default the connector reads `config/config.json`. Copy
+`config/config.example.json` to `config/config.json` and adjust the local
+agent command, ports, token, and permission switches.
 
 Default URL: `http://127.0.0.1:17890`.
 
@@ -56,14 +48,11 @@ If `CONNECTOR_TOKEN` is set, pass `Authorization: Bearer <token>`.
 Run a local WebSocket wrapper around the ACP connector:
 
 ```powershell
-$env:ACP_COMMAND="E:\data\nodejs\node_global\node_modules\opencode-ai\bin\opencode.exe"
-$env:ACP_ARGS='["acp"]'
-$env:ACP_CWD="E:\develop\AI\remote_acp"
-$env:CONNECTOR_TOKEN="dev-token"
-npm run dev:connector:ws
+cd connector
+npm run dev:ws
 ```
 
-Default URL: `ws://127.0.0.1:17891?token=dev-token`.
+Default URL: `ws://127.0.0.1:17891`.
 
 Request format:
 
@@ -117,11 +106,53 @@ ACP streaming updates are pushed as:
 }
 ```
 
-## Project configuration
+## Connector configuration
+
+Startup config is stored in `config/config.json` by default. Override the
+path with `CONNECTOR_CONFIG_PATH`.
+
+```json
+{
+  "target": {
+    "kind": "local",
+    "command": "E:\\data\\nodejs\\node_global\\node_modules\\opencode-ai\\bin\\opencode.exe",
+    "args": ["acp"],
+    "cwd": "E:\\develop\\AI\\remote_acp"
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 17890,
+    "wsPort": 17891,
+    "token": ""
+  },
+  "permissions": {
+    "exposeFileSystem": false,
+    "exposeTerminal": false,
+    "autoApprovePermission": false
+  },
+  "allowedRoots": ["E:\\develop\\AI\\remote_acp"],
+  "projects": [
+    {
+      "id": "remote_acp",
+      "name": "remote_acp",
+      "cwd": "E:\\develop\\AI\\remote_acp"
+    }
+  ]
+}
+```
+
+Environment variables still work and override the config file:
+
+- `ACP_COMMAND`, `ACP_ARGS`, `ACP_CWD`
+- `ACP_WS_URL`, `ACP_AUTH_TOKEN`
+- `HOST`, `PORT`, `CONNECTOR_TOKEN`
+- `ACP_EXPOSE_FS`, `ACP_EXPOSE_TERMINAL`, `ACP_AUTO_APPROVE`
+- `ACP_ALLOWED_ROOTS`
+
+## Projects
 
 ACP does not provide a standard project list API. The local connector stores the
-user-configured project list in `connector.projects.json` by default. Override
-the path with `CONNECTOR_PROJECTS_PATH`.
+user-configured project list in the `projects` field of `config/config.json`.
 
 Project shape:
 
@@ -134,5 +165,5 @@ Project shape:
 }
 ```
 
-The miniprogram flow should read `projects.list`, then call `sessions.list` with
-each project's `cwd`.
+The miniprogram flow reads `GET /projects`, then calls `GET /sessions?cwd=...`
+with each project's `cwd`.

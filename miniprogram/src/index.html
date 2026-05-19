@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Remote ACP 小程序</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="phone">
+        <header class="status-bar">
+          <span>9:41</span>
+          <span>5G</span>
+        </header>
+
+        <section class="view active" data-view="home">
+          <div class="nav">
+            <div></div>
+            <h1>移动工作台</h1>
+            <button class="icon-button" id="settingsButton" type="button" aria-label="连接设置">...</button>
+          </div>
+
+          <div class="content">
+            <section class="home-panel" id="approvalHome">
+              <div class="segmented">
+                <button class="segment active" type="button" data-approval-tab="todo">待办</button>
+                <button class="segment" type="button" data-approval-tab="apply">申请</button>
+              </div>
+              <div id="approvalList"></div>
+            </section>
+
+            <section class="home-panel hidden" id="agentHome">
+              <div class="section-head">
+                <div>
+                  <h2>Agent</h2>
+                  <p id="connectorSummary">正在连接 connector...</p>
+                </div>
+                <button class="text-button" id="refreshAgentsButton" type="button">刷新</button>
+              </div>
+              <div id="agentList" class="list"></div>
+            </section>
+          </div>
+
+          <nav class="tabbar">
+            <button class="tab active" type="button" data-home-tab="approval">审批</button>
+            <button class="tab" type="button" data-home-tab="agent">Agent</button>
+          </nav>
+        </section>
+
+        <section class="view" data-view="agent">
+          <div class="nav">
+            <button class="back-button" type="button" data-back="home">‹</button>
+            <h1 id="agentTitle">Agent</h1>
+            <button class="icon-button" id="refreshProjectsButton" type="button" aria-label="刷新">↻</button>
+          </div>
+          <div class="content">
+            <div class="notice compact" id="agentNotice"></div>
+            <div class="section-head">
+              <div>
+                <h2>项目与 Session</h2>
+                <p>项目由 connector 本地配置，所有 Agent 共享。</p>
+              </div>
+              <button class="primary-button small" id="addProjectButton" type="button">新增项目</button>
+            </div>
+            <div id="projectList" class="project-list"></div>
+          </div>
+        </section>
+
+        <section class="view" data-view="chat">
+          <div class="nav">
+            <button class="back-button" type="button" data-back="agent">‹</button>
+            <h1 id="chatTitle">Session</h1>
+            <button class="icon-button" id="sessionSettingsButton" type="button" aria-label="Session 设置">⚙</button>
+          </div>
+          <div class="content chat-content" id="messageList"></div>
+          <form class="composer" id="composerForm">
+            <textarea id="messageInput" rows="1" placeholder="发送消息给 Agent"></textarea>
+            <button class="send-button" type="submit" aria-label="发送">↑</button>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="settingsDialog" class="sheet">
+      <form method="dialog">
+        <h2>连接设置</h2>
+        <label>
+          Connector 地址
+          <input id="connectorUrlInput" type="url" autocomplete="off" />
+        </label>
+        <label>
+          Token
+          <input id="connectorTokenInput" type="password" autocomplete="off" placeholder="未配置可留空" />
+        </label>
+        <div class="actions">
+          <button class="text-button" value="cancel" type="submit">取消</button>
+          <button class="primary-button" id="saveSettingsButton" value="default" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="projectDialog" class="sheet">
+      <form method="dialog">
+        <h2>新增项目</h2>
+        <label>
+          项目名称
+          <input id="projectNameInput" autocomplete="off" placeholder="remote_acp" />
+        </label>
+        <label>
+          项目目录
+          <input id="projectCwdInput" autocomplete="off" placeholder="E:\develop\AI\remote_acp" />
+        </label>
+        <p class="hint">小程序不能读取本地目录，目录需要从运行 connector 的电脑上复制后填入。</p>
+        <div class="actions">
+          <button class="text-button" value="cancel" type="submit">取消</button>
+          <button class="primary-button" id="saveProjectButton" value="default" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="sessionDialog" class="sheet">
+      <form method="dialog">
+        <h2>Session 设置</h2>
+        <label>
+          模式
+          <select id="modeSelect"></select>
+        </label>
+        <label>
+          模型
+          <select id="modelSelect"></select>
+        </label>
+        <div class="actions">
+          <button class="text-button" value="cancel" type="submit">取消</button>
+          <button class="primary-button" id="saveSessionSettingsButton" value="default" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

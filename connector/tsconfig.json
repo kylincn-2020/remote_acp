@@ -8,9 +8,9 @@
     "strict": true,
     "declaration": true,
     "sourceMap": true,
-    "outDir": "dist",
+    "outDir": "../dist/connector",
     "rootDir": ".",
     "skipLibCheck": true
   },
-  "include": ["connector/**/*.ts"]
+  "include": ["src/**/*.ts", "examples/**/*.ts"]
 }

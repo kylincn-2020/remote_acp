@@ -1,0 +1,9 @@
+{
+  "name": "@remote-acp/miniprogram",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "check": "node --check server.js && node --check src/app.js"
+  }
+}

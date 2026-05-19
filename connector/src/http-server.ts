@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
-import { createAcpConnector, type AcpConnectorOptions, type AcpTarget } from "./index.js";
+import { loadConnectorServerConfig } from "./config.js";
+import { createAcpConnector, type AcpConnectorOptions } from "./index.js";
 import {
   readProjects,
   removeProject,
@@ -48,13 +49,13 @@ export async function startAcpHttpServer(options: AcpHttpServerOptions) {
         return;
       }
 
-      if (!isAuthorized(request, options.token)) {
+      const url = new URL(request.url ?? "/", "http://localhost");
+      const path = trimTrailingSlash(url.pathname);
+
+      if (!isAuthorized(request, options.token, url)) {
         sendJson(response, 401, { error: "unauthorized" });
         return;
       }
-
-      const url = new URL(request.url ?? "/", "http://localhost");
-      const path = trimTrailingSlash(url.pathname);
 
       if (request.method === "GET" && path === "/health") {
         sendJson(response, 200, {
@@ -235,11 +236,11 @@ function setCorsHeaders(response: ServerResponse) {
   response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 }
 
-function isAuthorized(request: IncomingMessage, token?: string) {
+function isAuthorized(request: IncomingMessage, token?: string, url?: URL) {
   if (!token) {
     return true;
   }
-  return request.headers.authorization === `Bearer ${token}`;
+  return request.headers.authorization === `Bearer ${token}` || url?.searchParams.get("token") === token;
 }
 
 function sendJson(response: ServerResponse, status: number, body: unknown) {
@@ -281,47 +282,12 @@ function trimTrailingSlash(path: string) {
   return path.length > 1 ? path.replace(/\/+$/, "") : path;
 }
 
-function targetFromEnv(): AcpTarget {
-  if (process.env.ACP_WS_URL) {
-    return {
-      kind: "websocket",
-      url: process.env.ACP_WS_URL,
-      headers: process.env.ACP_AUTH_TOKEN
-        ? {
-            Authorization: `Bearer ${process.env.ACP_AUTH_TOKEN}`,
-          }
-        : undefined,
-    };
-  }
-
-  if (!process.env.ACP_COMMAND) {
-    throw new Error("Set ACP_COMMAND or ACP_WS_URL before starting the HTTP connector.");
-  }
-
-  return {
-    kind: "local",
-    command: process.env.ACP_COMMAND,
-    args: process.env.ACP_ARGS ? (JSON.parse(process.env.ACP_ARGS) as string[]) : [],
-    cwd: process.env.ACP_CWD ?? process.cwd(),
-  };
-}
-
 function isDirectRun() {
   return process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 }
 
 if (isDirectRun()) {
-  const port = process.env.PORT ? Number(process.env.PORT) : 17890;
-  const host = process.env.HOST ?? "127.0.0.1";
-  await startAcpHttpServer({
-    target: targetFromEnv(),
-    allowedRoots: [process.env.ACP_CWD ?? process.cwd()],
-    exposeFileSystem: process.env.ACP_EXPOSE_FS === "1",
-    exposeTerminal: process.env.ACP_EXPOSE_TERMINAL === "1",
-    autoApprovePermission: process.env.ACP_AUTO_APPROVE === "1",
-    token: process.env.CONNECTOR_TOKEN,
-    host,
-    port,
-  });
+  const { host, port, ...options } = await loadConnectorServerConfig("http");
+  await startAcpHttpServer({ ...options, host, port });
   console.log(`ACP HTTP connector listening on http://${host}:${port}`);
 }

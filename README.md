@@ -5,7 +5,7 @@ Prototype UI plus an ACP connector for controlling local or remote coding agents
 ## Modules
 
 - `connector/`: standalone TypeScript ACP connector module
-- `miniprogram/`: standalone mini program module, reserved for the app implementation
+- `miniprogram/`: standalone mini program page module
 - `prototype/`: static HTML prototype screens
 
 ## ACP connector
@@ -34,31 +34,31 @@ await connector.sendText({
 });
 ```
 
-## Local agent
+## Run Connector
 
 ```powershell
-$env:ACP_COMMAND = "opencode"
-$env:ACP_ARGS = '["acp"]'
-$env:ACP_CWD = "E:\develop\AI\remote_acp"
-npm run dev:acp
+cd connector
+npm run dev:http
 ```
 
-Adjust `ACP_COMMAND` and `ACP_ARGS` to match the agent command that exposes ACP on stdio.
+Connector startup reads `config/config.json` from inside the `connector/` directory.
 
-## Remote agent
+## Run Miniprogram
 
 ```powershell
-$env:ACP_WS_URL = "wss://example.com/acp"
-$env:ACP_AUTH_TOKEN = "token-if-needed"
-$env:ACP_CWD = "E:\develop\AI\remote_acp"
-npm run dev:acp
+cd miniprogram
+npm run dev
 ```
 
-The remote endpoint should accept WebSocket messages containing newline-delimited JSON ACP frames.
+Open `http://127.0.0.1:17892`.
 
-## Build
+## Checks
 
 ```powershell
+cd connector
 npm run check
 npm run build
+
+cd ..\miniprogram
+npm run check
 ```
