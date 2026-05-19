@@ -1,0 +1,1500 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>远程 Agent 小程序原型</title>
+    <style>
+      :root {
+        --bg: #eef2f8;
+        --phone: #f7f9fc;
+        --panel: #ffffff;
+        --line: #dce3ee;
+        --text: #152033;
+        --muted: #6c788b;
+        --soft: #eef3f9;
+        --blue: #3d7df0;
+        --green: #1f9d63;
+        --purple: #6759e8;
+        --orange: #d57a22;
+        --shadow: 0 22px 60px rgba(29, 42, 68, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Microsoft YaHei", sans-serif;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0)),
+          var(--bg);
+      }
+
+      .board {
+        width: min(1240px, calc(100vw - 40px));
+        margin: 0 auto;
+        padding: 32px 0 42px;
+      }
+
+      .titlebar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 22px;
+      }
+
+      .titlebar h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      .titlebar p {
+        margin: 8px 0 0;
+        max-width: 680px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .legend {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: #465267;
+        background: rgba(255, 255, 255, 0.72);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .frames {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(270px, 1fr));
+        gap: 22px;
+        align-items: start;
+      }
+
+      .frame-wrap {
+        display: grid;
+        gap: 12px;
+      }
+
+      .caption {
+        padding: 0 6px;
+        color: #334158;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .phone {
+        width: 100%;
+        max-width: 390px;
+        aspect-ratio: 390 / 844;
+        margin: 0 auto;
+        border: 10px solid #111827;
+        border-radius: 38px;
+        overflow: hidden;
+        background: var(--phone);
+        box-shadow: var(--shadow);
+        position: relative;
+      }
+
+      .miniapp {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+
+      .status {
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 22px;
+        color: #121927;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status-icons {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .signal {
+        width: 17px;
+        height: 10px;
+        border: 2px solid #111827;
+        border-top: 0;
+        border-radius: 0 0 3px 3px;
+      }
+
+      .battery {
+        width: 20px;
+        height: 10px;
+        border: 1.8px solid #111827;
+        border-radius: 3px;
+        position: relative;
+      }
+
+      .battery::after {
+        content: "";
+        position: absolute;
+        right: -4px;
+        top: 2px;
+        width: 2px;
+        height: 4px;
+        background: #111827;
+        border-radius: 0 2px 2px 0;
+      }
+
+      .nav {
+        height: 48px;
+        display: grid;
+        grid-template-columns: 40px 1fr 76px;
+        align-items: center;
+        padding: 0 16px;
+        border-bottom: 1px solid rgba(220, 227, 238, 0.8);
+        background: rgba(247, 249, 252, 0.92);
+      }
+
+      .nav-title {
+        display: grid;
+        place-items: center;
+        gap: 1px;
+        text-align: center;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .nav-sub {
+        display: block;
+        margin-top: 1px;
+        color: var(--green);
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .back,
+      .menu {
+        color: #26334a;
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      .menu {
+        justify-self: end;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 64px;
+        height: 30px;
+        justify-content: center;
+        padding: 0 9px;
+        border: 1px solid #d9e1ee;
+        border-radius: 999px;
+        background: #fff;
+        color: #344258;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .menu.active {
+        border-color: rgba(103, 89, 232, 0.45);
+        background: #f6f5ff;
+        color: var(--purple);
+      }
+
+      .session-icon {
+        font-size: 15px;
+        line-height: 1;
+        transform: translateY(-1px);
+      }
+
+      .content {
+        min-height: 0;
+        flex: 1;
+        padding: 14px 14px 12px;
+        overflow: hidden;
+      }
+
+      .context-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .select-chip {
+        min-width: 0;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 0 10px;
+        border: 1px solid #dce5f1;
+        border-radius: 10px;
+        background: #fff;
+        color: #253149;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .select-chip span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .mode-row {
+        height: 38px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        padding: 4px;
+        margin-bottom: 16px;
+        border: 1px solid #dce5f1;
+        border-radius: 11px;
+        background: #eaf0f7;
+      }
+
+      .mode-row button {
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #526078;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .mode-row .active {
+        background: #fff;
+        color: var(--purple);
+        box-shadow: 0 1px 6px rgba(41, 52, 75, 0.12);
+      }
+
+      .timeline {
+        display: grid;
+        gap: 12px;
+      }
+
+      .notice {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border: 1px solid #dbe7dc;
+        border-radius: 12px;
+        background: #f2fbf5;
+        color: #2b6646;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .session-strip {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        border: 1px solid #dfe7f2;
+        border-radius: 13px;
+        background: #fff;
+      }
+
+      .session-strip-title {
+        color: #1f2d44;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .session-strip-meta {
+        margin-top: 2px;
+        color: #7a8697;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .session-strip-action {
+        display: inline-flex;
+        align-items: center;
+        height: 28px;
+        padding: 0 9px;
+        border-radius: 999px;
+        background: #eef3ff;
+        color: var(--purple);
+        font-size: 11px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .session-summary {
+        margin-top: 8px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .session-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .session-action {
+        flex: 1;
+        height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: #eef3ff;
+        color: var(--purple);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .session-action.secondary-session-action {
+        background: #f1f4f8;
+        color: #526078;
+      }
+
+      .module-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .module-card {
+        min-height: 86px;
+        display: grid;
+        grid-template-columns: 42px 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 13px;
+        border: 1px solid #e1e8f2;
+        border-radius: 16px;
+        background: #fff;
+      }
+
+      .module-icon {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 13px;
+        background: #eef3ff;
+        color: var(--purple);
+        font-weight: 900;
+      }
+
+      .module-title {
+        color: #1c283d;
+        font-size: 15px;
+        font-weight: 900;
+      }
+
+      .module-desc {
+        margin-top: 4px;
+        color: #7a8697;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .count-pill {
+        min-width: 30px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #fff3e6;
+        color: var(--orange);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .approval-tabs {
+        height: 38px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        padding: 4px;
+        margin-bottom: 12px;
+        border: 1px solid #dce5f1;
+        border-radius: 12px;
+        background: #eaf0f7;
+      }
+
+      .approval-tab {
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        color: #526078;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .approval-tab.active {
+        background: #fff;
+        color: var(--purple);
+        box-shadow: 0 1px 6px rgba(41, 52, 75, 0.12);
+      }
+
+      .approval-group {
+        display: grid;
+        gap: 6px;
+        padding: 8px 10px 10px;
+        border: 1px solid #e1e8f2;
+        border-radius: 12px;
+        background: #fff;
+      }
+
+      .approval-group-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 28px;
+        color: #1c283d;
+        font-size: 13px;
+        font-weight: 900;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .approval-group-title::-webkit-details-marker {
+        display: none;
+      }
+
+      .approval-group-name {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .approval-group-name::before {
+        content: "▾";
+        color: #7f8ba0;
+        font-size: 12px;
+      }
+
+      .approval-group:not([open]) .approval-group-name::before {
+        content: "▸";
+      }
+
+      .approval-count {
+        color: #7f8ba0;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .approval-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 44px;
+        padding: 0 2px 0 20px;
+        border-top: 1px solid #edf1f7;
+        color: #1c283d;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .approval-link::after {
+        content: "›";
+        color: #9aa5b6;
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .bottom-tabs {
+        height: 58px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-top: 1px solid #dce3ee;
+        background: #fff;
+      }
+
+      .bottom-tab {
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 3px;
+        color: #758196;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .bottom-tab strong {
+        color: inherit;
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .bottom-tab.active {
+        color: var(--purple);
+      }
+
+      .msg {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+
+      .avatar {
+        flex: 0 0 28px;
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        color: #fff;
+        background: #2f405e;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .bubble {
+        max-width: 280px;
+        padding: 10px 12px;
+        border-radius: 13px;
+        background: #fff;
+        border: 1px solid #e2e8f2;
+        color: #26344b;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .bubble strong {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 12px;
+      }
+
+      .msg.user {
+        justify-content: flex-end;
+      }
+
+      .msg.user .bubble {
+        border-color: #cbd9ff;
+        background: #eaf0ff;
+      }
+
+      .tool-call {
+        margin-top: 8px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .tool-item {
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 0 9px;
+        border-radius: 8px;
+        background: #f3f6fa;
+        color: #46556d;
+        font-size: 11px;
+      }
+
+      .composer {
+        padding: 10px 12px 16px;
+        background: rgba(247, 249, 252, 0.95);
+        border-top: 1px solid rgba(220, 227, 238, 0.9);
+      }
+
+      .input-box {
+        border: 1px solid #d8e1ee;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(43, 58, 86, 0.08);
+        overflow: hidden;
+      }
+
+      .placeholder {
+        min-height: 64px;
+        padding: 14px 14px 8px;
+        color: #8a95a6;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .toolbar {
+        min-height: 44px;
+        display: grid;
+        grid-template-columns: 32px repeat(2, minmax(0, 1fr)) 32px;
+        align-items: center;
+        gap: 7px;
+        padding: 0 10px 10px;
+      }
+
+      .icon-btn,
+      .send {
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 50%;
+        background: #f0f4fa;
+        color: #344258;
+        font-size: 18px;
+      }
+
+      .mini-chip {
+        min-width: 0;
+        width: 100%;
+        height: 32px;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        gap: 5px;
+        padding: 0 7px;
+        border: 0;
+        border-radius: 999px;
+        color: #354258;
+        background: #f2f5fa;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .mini-chip .clip {
+        min-width: 0;
+        max-width: 72px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .send {
+        background: var(--purple);
+        color: #fff;
+        font-size: 20px;
+        box-shadow: 0 7px 18px rgba(103, 89, 232, 0.32);
+      }
+
+      .safe {
+        height: 4px;
+      }
+
+      .sheet-mask {
+        position: absolute;
+        inset: 82px 0 0;
+        background: rgba(21, 32, 51, 0.26);
+      }
+
+      .sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 22px 22px 0 0;
+        background: #fff;
+        box-shadow: 0 -18px 38px rgba(17, 24, 39, 0.16);
+      }
+
+      .sheet-head {
+        height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 18px;
+        border-bottom: 1px solid #edf1f6;
+      }
+
+      .sheet-title {
+        font-size: 16px;
+        font-weight: 900;
+      }
+
+      .close {
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 50%;
+        background: #f1f4f8;
+        color: #536177;
+        font-size: 18px;
+      }
+
+      .sheet-body {
+        padding: 12px 14px 22px;
+      }
+
+      .search {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        margin-bottom: 10px;
+        border-radius: 12px;
+        background: #f1f5fa;
+        color: #7b8798;
+        font-size: 13px;
+      }
+
+      .list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .project,
+      .model-option {
+        display: grid;
+        grid-template-columns: 34px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 58px;
+        padding: 8px 10px;
+        border: 1px solid #e1e8f2;
+        border-radius: 14px;
+        background: #fff;
+      }
+
+      .agent-option {
+        display: grid;
+        grid-template-columns: 38px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 72px;
+        padding: 10px;
+        border: 1px solid #e1e8f2;
+        border-radius: 15px;
+        background: #fff;
+      }
+
+      .agent-option.selected {
+        border-color: rgba(103, 89, 232, 0.52);
+        background: #f6f5ff;
+      }
+
+      .agent-logo {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        background: #eef3ff;
+        color: var(--purple);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .agent-meta {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 5px;
+      }
+
+      .agent-badge {
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: #eef3f9;
+        color: #697589;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .agent-badge.online {
+        background: #e9f8ef;
+        color: #258354;
+      }
+
+      .session-option {
+        display: grid;
+        grid-template-columns: 10px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 70px;
+        padding: 10px;
+        border: 1px solid #e1e8f2;
+        border-radius: 15px;
+        background: #fff;
+      }
+
+      .session-option.active {
+        border-color: rgba(31, 157, 99, 0.42);
+        background: #f3fbf6;
+      }
+
+      .session-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #98a4b6;
+      }
+
+      .session-option.active .session-dot {
+        background: var(--green);
+      }
+
+      .session-time {
+        color: #7b8798;
+        font-size: 10px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+
+      .project.selected,
+      .model-option.selected {
+        border-color: rgba(103, 89, 232, 0.52);
+        background: #f6f5ff;
+      }
+
+      .folder,
+      .model-logo {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: #eaf1ff;
+        color: var(--blue);
+        font-weight: 900;
+      }
+
+      .model-logo {
+        background: #f0edff;
+        color: var(--purple);
+      }
+
+      .primary {
+        color: #1c283d;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .secondary {
+        margin-top: 2px;
+        color: #7a8697;
+        font-size: 11px;
+      }
+
+      .check {
+        color: var(--purple);
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .sheet-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .action {
+        flex: 1;
+        height: 42px;
+        border: 0;
+        border-radius: 12px;
+        background: #eef3f9;
+        color: #344258;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .action.primary-action {
+        background: var(--purple);
+        color: #fff;
+      }
+
+      .section-label {
+        margin: 14px 2px 8px;
+        color: #697589;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .mode-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .mode-card {
+        min-height: 76px;
+        padding: 10px 8px;
+        border: 1px solid #e1e8f2;
+        border-radius: 14px;
+        background: #fff;
+      }
+
+      .mode-card.selected {
+        border-color: rgba(103, 89, 232, 0.52);
+        background: #f6f5ff;
+      }
+
+      .mode-icon {
+        width: 26px;
+        height: 26px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 8px;
+        border-radius: 8px;
+        background: #edf3fb;
+        color: #46556d;
+        font-weight: 900;
+      }
+
+      .mode-card.selected .mode-icon {
+        background: var(--purple);
+        color: #fff;
+      }
+
+      .mode-title {
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .mode-desc {
+        margin-top: 3px;
+        color: #7b8798;
+        font-size: 10px;
+        line-height: 1.3;
+      }
+
+      @media (max-width: 1060px) {
+        .frames {
+          grid-template-columns: 1fr;
+        }
+
+        .titlebar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .legend {
+          justify-content: flex-start;
+        }
+      }
+
+      @media (max-width: 430px) {
+        .board {
+          width: 100%;
+          padding: 18px 12px 28px;
+        }
+
+        .titlebar h1 {
+          font-size: 22px;
+        }
+
+        .phone {
+          border-width: 7px;
+          border-radius: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="board">
+      <header class="titlebar">
+        <div>
+          <h1>办公助手小程序 UI 原型</h1>
+          <p>
+            小程序包含移动审批和 Agent 两个一级功能；审批内分待办和申请，Agent 内进入聊天后再创建或恢复 Session。
+          </p>
+        </div>
+        <div class="legend">
+          <span class="tag">Agent 首页</span>
+          <span class="tag">移动审批</span>
+          <span class="tag">待办 / 申请</span>
+          <span class="tag">Agent 选择</span>
+          <span class="tag">创建 Session</span>
+          <span class="tag">Model 选择</span>
+          <span class="tag">Mode 切换</span>
+          <span class="tag">Session 列表</span>
+          <span class="tag">聊天 + 文件 + 定时任务</span>
+        </div>
+      </header>
+
+      <section class="frames">
+        <div class="frame-wrap">
+          <div class="caption">1. 小程序首页</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">办公助手</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="module-grid">
+                  <div class="module-card">
+                    <div class="module-icon">审</div>
+                    <div>
+                      <div class="module-title">移动审批</div>
+                      <div class="module-desc">查看待办审批，跟踪我发起的申请</div>
+                    </div>
+                    <div class="count-pill">8</div>
+                  </div>
+                  <div class="module-card">
+                    <div class="module-icon">AI</div>
+                    <div>
+                      <div class="module-title">Agent</div>
+                      <div class="module-desc">选择后端 Agent，创建 Session 后开始对话</div>
+                    </div>
+                    <div class="session-time">进入</div>
+                  </div>
+                </div>
+              </div>
+              <div class="bottom-tabs">
+                <div class="bottom-tab active"><strong>✓</strong><span>审批</span></div>
+                <div class="bottom-tab"><strong>◎</strong><span>Agent</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">2. 移动审批 · 待办</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">移动审批</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="approval-tabs">
+                  <div class="approval-tab active">待办</div>
+                  <div class="approval-tab">申请</div>
+                </div>
+                <div class="timeline">
+                  <details class="approval-group" open>
+                    <summary class="approval-group-title"><span class="approval-group-name">采购审批</span><span class="approval-count">2</span></summary>
+                    <div class="approval-link">采购申请 · MacBook Pro</div>
+                    <div class="approval-link">采购申请 · 测试设备一批</div>
+                  </details>
+                  <details class="approval-group" open>
+                    <summary class="approval-group-title"><span class="approval-group-name">人事审批</span><span class="approval-count">3</span></summary>
+                    <div class="approval-link">请假申请 · 年假 2 天</div>
+                    <div class="approval-link">加班申请 · 项目发布支持</div>
+                    <div class="approval-link">外出申请 · 客户现场沟通</div>
+                  </details>
+                  <details class="approval-group">
+                    <summary class="approval-group-title"><span class="approval-group-name">财务审批</span><span class="approval-count">1</span></summary>
+                    <div class="approval-link">报销申请 · 客户拜访</div>
+                  </details>
+                </div>
+              </div>
+              <div class="bottom-tabs">
+                <div class="bottom-tab active"><strong>✓</strong><span>审批</span></div>
+                <div class="bottom-tab"><strong>◎</strong><span>Agent</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">3. 移动审批 · 申请</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">移动审批</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="approval-tabs">
+                  <div class="approval-tab">待办</div>
+                  <div class="approval-tab active">申请</div>
+                </div>
+                <div class="timeline">
+                  <details class="approval-group" open>
+                    <summary class="approval-group-title"><span class="approval-group-name">采购申请</span><span class="approval-count">1</span></summary>
+                    <div class="approval-link">我发起的设备采购</div>
+                  </details>
+                  <details class="approval-group" open>
+                    <summary class="approval-group-title"><span class="approval-group-name">财务申请</span><span class="approval-count">2</span></summary>
+                    <div class="approval-link">我发起的报销申请</div>
+                    <div class="approval-link">我发起的差旅借款</div>
+                  </details>
+                  <details class="approval-group">
+                    <summary class="approval-group-title"><span class="approval-group-name">人事申请</span><span class="approval-count">2</span></summary>
+                    <div class="approval-link">我发起的年假申请</div>
+                    <div class="approval-link">我发起的外出申请</div>
+                  </details>
+                  <details class="approval-group">
+                    <summary class="approval-group-title"><span class="approval-group-name">用印申请</span><span class="approval-count">1</span></summary>
+                    <div class="approval-link">我发起的合同用印申请</div>
+                  </details>
+                </div>
+              </div>
+              <div class="bottom-tabs">
+                <div class="bottom-tab active"><strong>✓</strong><span>审批</span></div>
+                <div class="bottom-tab"><strong>◎</strong><span>Agent</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">4. Agent 列表首页</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">Agent 列表<span class="nav-sub">选择一个 Agent 开始</span></div>
+                <div></div>
+              </div>
+
+              <div class="content">
+                <div class="timeline">
+                  <div class="notice">● Agent 列表由后端读取；点击任意 Agent 进入聊天窗口。</div>
+
+                  <div class="agent-option selected">
+                    <div class="agent-logo">OC</div>
+                    <div>
+                      <div class="primary">OpenCode</div>
+                      <div class="secondary">本地 ACP · E:\develop\AI\remote_acp</div>
+                      <div class="agent-meta"><span class="agent-badge online">已连接</span><span class="agent-badge">12 个 Session</span><span class="agent-badge">构建模式</span></div>
+                    </div>
+                    <div class="check">进入</div>
+                  </div>
+
+                  <div class="agent-option">
+                    <div class="agent-logo">CX</div>
+                    <div>
+                      <div class="primary">Codex</div>
+                      <div class="secondary">后端返回 · 适合代码审查和改造</div>
+                      <div class="agent-meta"><span class="agent-badge">可用</span><span class="agent-badge">Git 集成</span></div>
+                    </div>
+                    <div class="session-time">进入</div>
+                  </div>
+
+                  <div class="agent-option">
+                    <div class="agent-logo">CC</div>
+                    <div>
+                      <div class="primary">Claude Code</div>
+                      <div class="secondary">后端返回 · 适合长上下文任务</div>
+                      <div class="agent-meta"><span class="agent-badge">可用</span><span class="agent-badge">终端代理</span></div>
+                    </div>
+                    <div class="session-time">进入</div>
+                  </div>
+
+                </div>
+              </div>
+              <div class="bottom-tabs">
+                <div class="bottom-tab"><strong>✓</strong><span>审批</span></div>
+                <div class="bottom-tab active"><strong>◎</strong><span>Agent</span></div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">5. Agent 聊天窗口</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">OpenCode</div>
+                <div></div>
+              </div>
+
+              <div class="content">
+                <div class="session-actions">
+                  <div class="session-action">新建 Session</div>
+                  <div class="session-action secondary-session-action">Session 列表</div>
+                </div>
+                <div class="session-strip">
+                  <div>
+                    <div class="session-strip-title">当前 Session · 正在运行</div>
+                    <div class="session-strip-meta">remote_acp · gpt-5.4 · 构建模式</div>
+                    <div class="session-summary"><span class="agent-badge">项目在创建时选择</span><span class="agent-badge">可恢复历史 Session</span></div>
+                  </div>
+                  <div class="session-strip-action">Session 列表</div>
+                </div>
+
+                <div class="timeline">
+                  <div class="notice">● OpenCode 运行在 E:\develop\AI\remote_acp，当前模式允许编辑文件和执行构建命令。</div>
+
+                  <div class="msg user">
+                    <div class="bubble">帮我看下项目结构，然后做一个远程控制入口。</div>
+                  </div>
+
+                  <div class="msg">
+                    <div class="avatar">OC</div>
+                    <div class="bubble">
+                      <strong>OpenCode</strong>
+                      我会先读取目录、识别技术栈，再给出可执行的改动计划。
+                      <div class="tool-call">
+                        <div class="tool-item"><span>读取项目文件</span><span>完成</span></div>
+                        <div class="tool-item"><span>检查 package 配置</span><span>进行中</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="composer">
+                <div class="input-box">
+                  <div class="placeholder">OpenCode，发消息、上传文件、打开文件夹或创建定时任务…</div>
+                  <div class="toolbar">
+                    <button class="icon-btn">+</button>
+                    <button class="mini-chip"><span>◈</span><span class="clip">默认模型</span></button>
+                    <button class="mini-chip"><span>🛡</span><span class="clip">构建</span></button>
+                    <button class="send">↑</button>
+                  </div>
+                </div>
+                <div class="safe"></div>
+              </div>
+              <div class="bottom-tabs">
+                <div class="bottom-tab"><strong>✓</strong><span>审批</span></div>
+                <div class="bottom-tab active"><strong>◎</strong><span>Agent</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">6. 创建 Session</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">OpenCode</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="timeline">
+                  <div class="notice">● 创建 Session 时选择项目、模型和模式；创建后聊天窗口只显示当前 Session 摘要。</div>
+                  <div class="project selected">
+                    <div class="folder">⌂</div>
+                    <div><div class="primary">remote_acp</div><div class="secondary">E:\develop\AI\remote_acp</div></div>
+                    <div class="check">✓</div>
+                  </div>
+                  <div class="project">
+                    <div class="folder">⌂</div>
+                    <div><div class="primary">web-client</div><div class="secondary">最近使用 · 12 分钟前</div></div>
+                    <div></div>
+                  </div>
+                  <div class="project">
+                    <div class="folder">＋</div>
+                    <div><div class="primary">打开新文件夹</div><div class="secondary">从后端项目列表选择或授权新目录</div></div>
+                    <div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="sheet-mask"></div>
+              <div class="sheet">
+                <div class="sheet-head">
+                  <div class="sheet-title">创建 Session</div>
+                  <button class="close">×</button>
+                </div>
+                <div class="sheet-body">
+                  <div class="search">已选择项目：remote_acp</div>
+                  <div class="list">
+                    <div class="project">
+                      <div class="model-logo">5</div>
+                      <div><div class="primary">模型 · gpt-5.4</div><div class="secondary">适合日常编码和小程序实现</div></div>
+                      <div></div>
+                    </div>
+                    <div class="project">
+                      <div class="mode-icon">B</div>
+                      <div><div class="primary">模式 · 构建</div><div class="secondary">允许编辑文件和运行验证命令</div></div>
+                      <div></div>
+                    </div>
+                  </div>
+                  <div class="sheet-actions">
+                    <button class="action">取消</button>
+                    <button class="action primary-action">创建</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">7. 当前 Session 设置</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">OpenCode</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="timeline">
+                  <div class="notice">● 当前 Session 只允许调整模型和模式；项目在创建 Session 时确定。</div>
+                </div>
+              </div>
+              <div class="sheet-mask"></div>
+              <div class="sheet">
+                <div class="sheet-head">
+                  <div class="sheet-title">当前 Session 设置</div>
+                  <button class="close">×</button>
+                </div>
+                <div class="sheet-body">
+                  <div class="list">
+                    <div class="model-option selected">
+                      <div class="model-logo">5</div>
+                      <div><div class="primary">gpt-5.4</div><div class="secondary">默认 · 适合日常编码</div></div>
+                      <div class="check">✓</div>
+                    </div>
+                    <div class="model-option">
+                      <div class="model-logo">C</div>
+                      <div><div class="primary">gpt-5.3-codex</div><div class="secondary">代码任务优先</div></div>
+                      <div></div>
+                    </div>
+                  </div>
+                  <div class="section-label">运行模式</div>
+                  <div class="mode-list">
+                    <div class="mode-card">
+                      <div class="mode-icon">R</div>
+                      <div class="mode-title">只读</div>
+                      <div class="mode-desc">查看和分析</div>
+                    </div>
+                    <div class="mode-card selected">
+                      <div class="mode-icon">B</div>
+                      <div class="mode-title">构建</div>
+                      <div class="mode-desc">编辑和验证</div>
+                    </div>
+                    <div class="mode-card">
+                      <div class="mode-icon">A</div>
+                      <div class="mode-title">权限</div>
+                      <div class="mode-desc">逐步确认</div>
+                    </div>
+                  </div>
+                  <div class="sheet-actions">
+                    <button class="action">恢复默认</button>
+                    <button class="action primary-action">应用</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="caption">8. 查看 Session 列表</div>
+          <div class="phone">
+            <div class="miniapp">
+              <div class="status">
+                <span>9:41</span>
+                <span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span>
+              </div>
+              <div class="nav">
+                <div class="back">‹</div>
+                <div class="nav-title">OpenCode</div>
+                <div></div>
+              </div>
+              <div class="content">
+                <div class="timeline">
+                  <div class="notice">● 从当前 Session 摘要打开列表，可恢复历史会话或查看运行中的任务。</div>
+                  <div class="msg">
+                    <div class="avatar">OC</div>
+                    <div class="bubble"><strong>OpenCode</strong>当前 session 正在处理 remote_acp 的小程序原型和 ACP 连接器。</div>
+                  </div>
+                </div>
+              </div>
+              <div class="sheet-mask"></div>
+              <div class="sheet">
+                <div class="sheet-head">
+                  <div class="sheet-title">Session 列表</div>
+                  <button class="close">×</button>
+                </div>
+                <div class="sheet-body">
+                  <div class="search">⌕ 搜索 session、项目或关键词</div>
+                  <div class="list">
+                    <div class="session-option active">
+                      <div class="session-dot"></div>
+                      <div>
+                        <div class="primary">当前会话 · remote_acp</div>
+                        <div class="secondary">正在设计小程序 UI 和 ACP connector</div>
+                        <div class="agent-meta"><span class="agent-badge online">运行中</span><span class="agent-badge">OpenCode</span><span class="agent-badge">构建模式</span></div>
+                      </div>
+                      <div class="session-time">刚刚</div>
+                    </div>
+                    <div class="session-option">
+                      <div class="session-dot"></div>
+                      <div>
+                        <div class="primary">前端原型调整</div>
+                        <div class="secondary">Agent 选择入口、底部输入栏布局</div>
+                        <div class="agent-meta"><span class="agent-badge">已暂停</span><span class="agent-badge">OpenCode</span></div>
+                      </div>
+                      <div class="session-time">17:12</div>
+                    </div>
+                    <div class="session-option">
+                      <div class="session-dot"></div>
+                      <div>
+                        <div class="primary">连接器验证</div>
+                        <div class="secondary">本地 stdio 和远程 WebSocket 方案</div>
+                        <div class="agent-meta"><span class="agent-badge">已完成</span><span class="agent-badge">Codex</span></div>
+                      </div>
+                      <div class="session-time">昨天</div>
+                    </div>
+                  </div>
+                  <div class="sheet-actions">
+                    <button class="action">新建 Session</button>
+                    <button class="action primary-action">恢复会话</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

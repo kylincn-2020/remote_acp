@@ -1,0 +1,26 @@
+{
+  "name": "remote_acp",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/connector/src/index.js",
+  "types": "dist/connector/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev:acp": "tsx connector/examples/connect.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^0.21.1",
+    "ws": "^8.20.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.22.1",
+    "typescript": "^6.0.3"
+  }
+}
