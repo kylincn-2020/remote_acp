@@ -1,8 +1,11 @@
 import { fileURLToPath } from "node:url";
 import WebSocket, { WebSocketServer } from "ws";
 import * as acp from "@agentclientprotocol/sdk";
+import type { CreateElicitationRequest, ElicitationContentValue } from "@agentclientprotocol/sdk";
 import { loadConnectorServerConfig } from "./config.js";
+import { ElicitationQueue } from "./elicitations.js";
 import { createAcpConnector, type AcpConnectorOptions } from "./index.js";
+import { PermissionQueue } from "./permissions.js";
 import {
   readProjects,
   removeProject,
@@ -32,8 +35,32 @@ type WsClientState = {
 
 export async function startAcpWebSocketServer(options: AcpWebSocketServerOptions) {
   const clients = new Set<WsClientState>();
+  const permissionQueue = new PermissionQueue((permission) => {
+    broadcast(clients, {
+      type: "permission.request",
+      sessionId: permission.request.sessionId,
+      permission,
+    });
+  });
+  const elicitationQueue = new ElicitationQueue((elicitation) => {
+    broadcast(clients, {
+      type: "elicitation.request",
+      sessionId: getElicitationSessionId(elicitation.request),
+      elicitation,
+    });
+  });
   const connector = await createAcpConnector({
     ...options,
+    clientCapabilities: {
+      ...options.clientCapabilities,
+      elicitation: options.clientCapabilities?.elicitation ?? {
+        form: {},
+        url: {},
+      },
+    },
+    onCreateElicitation:
+      options.onCreateElicitation ?? ((request) => elicitationQueue.request(request)),
+    onPermissionRequest: options.onPermissionRequest ?? ((request) => permissionQueue.request(request)),
     onSessionUpdate: async (notification) => {
       await options.onSessionUpdate?.(notification);
       broadcast(clients, {
@@ -70,7 +97,14 @@ export async function startAcpWebSocketServer(options: AcpWebSocketServerOptions
       let message: WsRequest | undefined;
       try {
         message = parseRequest(data.toString());
-        const result = await handleRequest(connector, state, message);
+        const result = await handleRequest(
+          connector,
+          permissionQueue,
+          elicitationQueue,
+          clients,
+          state,
+          message,
+        );
         if (message.requestId) {
           send(socket, {
             type: "response",
@@ -106,6 +140,8 @@ export async function startAcpWebSocketServer(options: AcpWebSocketServerOptions
         client.socket.close();
       }
       clients.clear();
+      permissionQueue.cancelAll();
+      elicitationQueue.cancelAll();
       await new Promise<void>((resolve, reject) => {
         wss.close((error) => (error ? reject(error) : resolve()));
       });
@@ -116,6 +152,9 @@ export async function startAcpWebSocketServer(options: AcpWebSocketServerOptions
 
 async function handleRequest(
   connector: Awaited<ReturnType<typeof createAcpConnector>>,
+  permissionQueue: PermissionQueue,
+  elicitationQueue: ElicitationQueue,
+  clients: Set<WsClientState>,
   state: WsClientState,
   request: WsRequest,
 ) {
@@ -139,6 +178,38 @@ async function handleRequest(
 
     case "projects.remove":
       return removeProject(requireString(payload, "projectId"));
+
+    case "permissions.list":
+      return { permissions: permissionQueue.list() };
+
+    case "permission.respond": {
+      const permission = permissionQueue.respond(
+        requireString(payload, "permissionId"),
+        optionalString(payload.optionId),
+      );
+      broadcast(clients, {
+        type: "permission.resolved",
+        sessionId: permission.request.sessionId,
+        permission,
+      });
+      return { ok: true };
+    }
+
+    case "elicitations.list":
+      return { elicitations: elicitationQueue.list() };
+
+    case "elicitation.respond": {
+      const elicitation = elicitationQueue.respond(
+        requireString(payload, "elicitationId"),
+        parseElicitationResponse(payload),
+      );
+      broadcast(clients, {
+        type: "elicitation.resolved",
+        sessionId: getElicitationSessionId(elicitation.request),
+        elicitation,
+      });
+      return { ok: true };
+    }
 
     case "sessions.list":
       return connector.listSessions({
@@ -266,6 +337,45 @@ function optionalArray(value: unknown) {
     throw new Error("Expected array");
   }
   return value;
+}
+
+function parseElicitationResponse(body: JsonObject): acp.CreateElicitationResponse {
+  const action = optionalString(body.action) ?? "accept";
+  if (action === "accept") {
+    return {
+      action,
+      content: isJsonObject(body.content) ? filterElicitationContent(body.content) : {},
+    };
+  }
+  if (action === "decline" || action === "cancel") {
+    return { action };
+  }
+  throw new Error(`Unsupported elicitation action: ${action}`);
+}
+
+function getElicitationSessionId(request: CreateElicitationRequest) {
+  return "sessionId" in request && typeof request.sessionId === "string"
+    ? request.sessionId
+    : undefined;
+}
+
+function filterElicitationContent(value: JsonObject): Record<string, ElicitationContentValue> {
+  const content: Record<string, ElicitationContentValue> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (isElicitationContentValue(item)) {
+      content[key] = item;
+    }
+  }
+  return content;
+}
+
+function isElicitationContentValue(value: unknown): value is ElicitationContentValue {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string"))
+  );
 }
 
 function isAuthorized(url: string, authorization: string | undefined, token?: string) {

@@ -27,6 +27,10 @@ Endpoints:
 
 - `GET /health`
 - `GET /capabilities`
+- `GET /permissions`
+- `POST /permissions/:permissionId/respond`
+- `GET /elicitations`
+- `POST /elicitations/:elicitationId/respond`
 - `GET /projects`
 - `PUT /projects`
 - `POST /projects`
@@ -40,7 +44,7 @@ Endpoints:
 - `POST /sessions/:sessionId/mode`
 - `POST /sessions/:sessionId/model`
 - `DELETE /sessions/:sessionId`
-- `GET /events?sessionId=<sessionId>` for SSE `session_update` events
+- `GET /events?sessionId=<sessionId>` for SSE `session_update`, `permission_request`, `permission_resolved`, `elicitation_request`, and `elicitation_resolved` events
 
 If `CONNECTOR_TOKEN` is set, pass `Authorization: Bearer <token>`.
 
@@ -86,6 +90,10 @@ Supported request types:
 - `projects.add`
 - `projects.update`
 - `projects.remove`
+- `permissions.list`
+- `permission.respond`
+- `elicitations.list`
+- `elicitation.respond`
 - `sessions.list`
 - `sessions.create`
 - `sessions.load`
@@ -104,6 +112,26 @@ ACP streaming updates are pushed as:
   "type": "session.update",
   "sessionId": "ses_xxx",
   "update": {}
+}
+```
+
+Agent permission requests are pushed as:
+
+```json
+{
+  "type": "permission.request",
+  "sessionId": "ses_xxx",
+  "permission": {}
+}
+```
+
+Agent elicitations are pushed as:
+
+```json
+{
+  "type": "elicitation.request",
+  "sessionId": "ses_xxx",
+  "elicitation": {}
 }
 ```
 

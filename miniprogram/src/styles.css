@@ -274,6 +274,116 @@ textarea {
   border-top: 1px solid #edf2f8;
 }
 
+.permission-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.permission-title {
+  color: #10213f;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.permission-meta {
+  color: #66758b;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.permission-detail {
+  max-height: 160px;
+  margin: 0;
+  overflow: auto;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f3f6fa;
+  color: #33435d;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.permission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.inline-permission-card {
+  margin-top: 4px;
+  background: #fff;
+}
+
+.inline-permission-card.resolved {
+  opacity: 0.72;
+}
+
+.permission-resolved {
+  color: #66758b;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.elicitation-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.elicitation-card.resolved {
+  opacity: 0.72;
+}
+
+.elicitation-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.elicitation-field {
+  display: grid;
+  gap: 5px;
+  color: #10213f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.elicitation-hint {
+  color: #66758b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.elicitation-field input,
+.elicitation-field select,
+.elicitation-field textarea {
+  width: 100%;
+  border: 1px solid #d4dfec;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #10213f;
+}
+
+.elicitation-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  width: fit-content;
+}
+
 .notice {
   padding: 12px;
   margin-bottom: 14px;

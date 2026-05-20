@@ -11,41 +11,6 @@ marked.setOptions({
   headerIds: false,
 });
 
-const approvalData = {
-  todo: [
-    {
-      name: "采购审批",
-      items: ["研发工作站采购申请", "测试环境云资源续费", "供应商准入审批"],
-    },
-    {
-      name: "费用报销",
-      items: ["华东客户拜访差旅报销", "团队培训费用报销"],
-    },
-    {
-      name: "人事流程",
-      items: ["后端工程师转正审批", "项目奖金发放确认"],
-    },
-  ],
-  apply: [
-    {
-      name: "采购申请",
-      items: ["MacBook Pro 采购", "代码扫描服务采购"],
-    },
-    {
-      name: "财务申请",
-      items: ["四月差旅报销", "客户活动费用申请"],
-    },
-    {
-      name: "人事申请",
-      items: ["年假申请", "外出申请"],
-    },
-    {
-      name: "用印申请",
-      items: ["合同用印申请", "授权书用印申请"],
-    },
-  ],
-};
-
 const fallbackAgent = {
   id: "connector-agent",
   name: "未连接 Agent",
@@ -67,9 +32,15 @@ const state = {
   currentSession: null,
   currentSessionId: null,
   eventSource: null,
+  permissionEventSource: null,
   messages: [],
   toolMessageIndexes: new Map(),
+  permissionMessageIndexes: new Map(),
+  elicitationMessageIndexes: new Map(),
   pendingThought: null,
+  permissions: [],
+  elicitations: [],
+  loadingPermissions: false,
 };
 
 const views = document.querySelectorAll(".view");
@@ -94,12 +65,20 @@ document.querySelector("#connectorUrlInput").value = state.connectorUrl;
 document.querySelector("#connectorTokenInput").value = state.token;
 
 document.querySelectorAll("[data-home-tab]").forEach((button) => {
-  button.addEventListener("click", () => switchHomeTab(button.dataset.homeTab));
+  button.addEventListener("click", () => {
+    switchHomeTab(button.dataset.homeTab);
+    if (button.dataset.homeTab === "approval") {
+      loadPermissions();
+    }
+  });
 });
 
 document.querySelectorAll("[data-approval-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     state.activeApprovalTab = button.dataset.approvalTab;
+    if (state.activeApprovalTab === "todo") {
+      loadPermissions();
+    }
     renderApproval();
   });
 });
@@ -121,6 +100,7 @@ document.querySelector("#saveSettingsButton").addEventListener("click", (event) 
   localStorage.setItem("connectorUrl", state.connectorUrl);
   localStorage.setItem("connectorToken", state.token);
   settingsDialog.close();
+  connectPermissionEvents();
   loadHome();
 });
 
@@ -194,6 +174,7 @@ messageInput.addEventListener("input", () => {
 });
 
 renderApproval();
+connectPermissionEvents();
 loadHome();
 
 function switchHomeTab(tab) {
@@ -210,7 +191,7 @@ function showView(name) {
 }
 
 async function loadHome() {
-  await Promise.allSettled([loadAgent(), loadProjects()]);
+  await Promise.allSettled([loadAgent(), loadProjects(), loadPermissions()]);
   renderAgents();
 }
 
@@ -245,30 +226,120 @@ function renderApproval() {
   document.querySelectorAll("[data-approval-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.approvalTab === state.activeApprovalTab);
   });
-  approvalList.replaceChildren(
-    ...approvalData[state.activeApprovalTab].map((group, index) => {
-      const details = document.createElement("details");
-      details.className = "approval-group";
-      details.open = index < 2;
 
-      const summary = document.createElement("summary");
-      summary.innerHTML = `<span>${escapeHtml(group.name)}</span><span class="meta">${group.items.length}</span>`;
+  if (state.activeApprovalTab === "todo") {
+    renderPermissionApprovals();
+    return;
+  }
 
-      const list = document.createElement("div");
-      list.className = "title-list";
-      list.replaceChildren(
-        ...group.items.map((item) => {
-          const row = document.createElement("div");
-          row.className = "title-item";
-          row.textContent = item;
-          return row;
-        }),
-      );
+  const empty = document.createElement("div");
+  empty.className = "panel empty";
+  empty.style.padding = "16px";
+  empty.textContent = "暂无已处理的 Agent 审批";
+  approvalList.replaceChildren(empty);
+}
 
-      details.append(summary, list);
-      return details;
-    }),
-  );
+async function loadPermissions() {
+  state.loadingPermissions = true;
+  renderPermissionApprovals();
+  try {
+    const result = await api("/permissions");
+    state.permissions = Array.isArray(result.permissions) ? result.permissions : [];
+  } catch (error) {
+    state.permissions = [{ error: error.message }];
+  } finally {
+    state.loadingPermissions = false;
+    renderPermissionApprovals();
+  }
+}
+
+async function mountCurrentSessionPermissions() {
+  try {
+    const result = await api("/permissions");
+    const permissions = Array.isArray(result.permissions) ? result.permissions : [];
+    state.permissions = permissions;
+    for (const permission of permissions) {
+      if (permission.request?.sessionId === state.currentSessionId) {
+        upsertPermissionMessage(permission);
+      }
+    }
+    renderPermissionApprovals();
+  } catch {
+    // Chat remains usable even if the connector has not enabled permission endpoints.
+  }
+
+  try {
+    const result = await api("/elicitations");
+    const elicitations = Array.isArray(result.elicitations) ? result.elicitations : [];
+    state.elicitations = elicitations;
+    for (const elicitation of elicitations) {
+      if (elicitation.request?.sessionId === state.currentSessionId) {
+        upsertElicitationMessage(elicitation);
+      }
+    }
+  } catch {
+    // Older connectors may not expose elicitation endpoints yet.
+  }
+}
+
+function renderPermissionApprovals() {
+  if (state.activeApprovalTab !== "todo") return;
+
+  const empty = document.createElement("div");
+  empty.className = "panel empty";
+  empty.style.padding = "16px";
+  empty.textContent = "Agent 审批会直接显示在对应聊天里";
+  approvalList.replaceChildren(empty);
+}
+
+function renderPermissionCard(permission) {
+  if (permission.error) {
+    const error = document.createElement("div");
+    error.className = "panel empty";
+    error.style.padding = "16px";
+    error.textContent = permission.error;
+    return error;
+  }
+
+  const request = permission.request || {};
+  const toolCall = request.toolCall || {};
+  const card = document.createElement("div");
+  card.className = "permission-card";
+
+  const title = document.createElement("div");
+  title.className = "permission-title";
+  title.textContent = toolCall.title || toolTitle({ toolKind: toolCall.kind }) || "Agent 请求执行操作";
+
+  const meta = document.createElement("div");
+  meta.className = "permission-meta";
+  meta.textContent = [toolCall.kind, request.sessionId].filter(Boolean).join(" · ");
+
+  const detail = document.createElement("pre");
+  detail.className = "permission-detail";
+  detail.textContent = permissionDetailText(toolCall);
+
+  const actions = document.createElement("div");
+  actions.className = "permission-actions";
+  for (const option of request.options || []) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = option.kind?.startsWith("allow") ? "primary-button small" : "text-button";
+    button.textContent = option.name || permissionOptionLabel(option.kind);
+    button.addEventListener("click", () => respondPermission(permission.id, option.optionId, button));
+    actions.append(button);
+  }
+
+  if (!request.options?.length) {
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "text-button";
+    cancel.textContent = "取消";
+    cancel.addEventListener("click", () => respondPermission(permission.id, undefined, cancel));
+    actions.append(cancel);
+  }
+
+  card.append(title, meta, detail, actions);
+  return card;
 }
 
 function renderAgents() {
@@ -286,6 +357,202 @@ function renderAgents() {
       },
     }),
   );
+}
+
+function connectPermissionEvents() {
+  if (state.permissionEventSource) {
+    state.permissionEventSource.close();
+  }
+
+  const url = new URL(`${state.connectorUrl.replace(/\/$/, "")}/events`);
+  if (state.token) {
+    url.searchParams.set("token", state.token);
+  }
+
+  const source = new EventSource(url);
+  source.addEventListener("permission_request", (event) => {
+    const permission = JSON.parse(event.data);
+    state.permissions = [
+      permission,
+      ...state.permissions.filter((item) => item.id && item.id !== permission.id),
+    ];
+    if (state.currentSessionId === permission.request?.sessionId) {
+      upsertPermissionMessage(permission);
+    }
+    renderPermissionApprovals();
+  });
+  source.addEventListener("permission_resolved", (event) => {
+    const permission = JSON.parse(event.data);
+    state.permissions = state.permissions.filter((item) => item.id !== permission.id);
+    resolvePermissionMessage(permission.id);
+    renderPermissionApprovals();
+  });
+  source.addEventListener("elicitation_request", (event) => {
+    const elicitation = JSON.parse(event.data);
+    state.elicitations = [
+      elicitation,
+      ...state.elicitations.filter((item) => item.id && item.id !== elicitation.id),
+    ];
+    if (state.currentSessionId === elicitation.request?.sessionId) {
+      upsertElicitationMessage(elicitation);
+    }
+  });
+  source.addEventListener("elicitation_resolved", (event) => {
+    const elicitation = JSON.parse(event.data);
+    state.elicitations = state.elicitations.filter((item) => item.id !== elicitation.id);
+    resolveElicitationMessage(elicitation.id);
+  });
+  state.permissionEventSource = source;
+}
+
+async function respondPermission(permissionId, optionId, button) {
+  const originalText = button?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "处理中...";
+  }
+
+  try {
+    await api(`/permissions/${encodeURIComponent(permissionId)}/respond`, {
+      method: "POST",
+      body: optionId ? { optionId } : {},
+    });
+    state.permissions = state.permissions.filter((item) => item.id !== permissionId);
+    resolvePermissionMessage(permissionId);
+    renderPermissionApprovals();
+  } catch (error) {
+    alert(error.message);
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+}
+
+function permissionDetailText(toolCall) {
+  const text = toolText(toolCall);
+  if (text) return text;
+  if (toolCall.rawInput) {
+    return typeof toolCall.rawInput === "string"
+      ? toolCall.rawInput
+      : JSON.stringify(toolCall.rawInput, null, 2);
+  }
+  return "Agent 正在等待你确认这个操作。";
+}
+
+function permissionOptionLabel(kind) {
+  return {
+    allow_always: "始终允许",
+    allow_once: "允许一次",
+    reject_always: "始终拒绝",
+    reject_once: "拒绝",
+  }[kind] || "选择";
+}
+
+function renderElicitationField(name, schema, required = []) {
+  const label = document.createElement("label");
+  label.className = "elicitation-field";
+  const title = document.createElement("span");
+  title.textContent = `${schema.title || name}${required.includes(name) ? " *" : ""}`;
+  label.append(title);
+
+  const description = schema.description;
+  if (description) {
+    const hint = document.createElement("span");
+    hint.className = "elicitation-hint";
+    hint.textContent = description;
+    label.append(hint);
+  }
+
+  const enumValues = schema.enum || schema.items?.enum;
+  const oneOf = schema.oneOf || schema.items?.oneOf;
+  if (schema.type === "boolean") {
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = name;
+    label.append(input);
+    return label;
+  }
+
+  if (Array.isArray(enumValues) || Array.isArray(oneOf)) {
+    const select = document.createElement("select");
+    select.name = name;
+    select.multiple = schema.type === "array";
+    for (const option of normalizeEnumOptions(enumValues, oneOf)) {
+      const item = document.createElement("option");
+      item.value = option.value;
+      item.textContent = option.label;
+      select.append(item);
+    }
+    label.append(select);
+    return label;
+  }
+
+  const input = document.createElement(schema.type === "string" ? "textarea" : "input");
+  input.name = name;
+  if (input.tagName === "INPUT") {
+    input.type = schema.type === "integer" || schema.type === "number" ? "number" : "text";
+  } else {
+    input.rows = 2;
+  }
+  label.append(input);
+  return label;
+}
+
+function normalizeEnumOptions(enumValues, oneOf) {
+  if (Array.isArray(oneOf)) {
+    return oneOf.map((option) => ({
+      value: String(option.const),
+      label: option.title || String(option.const),
+    }));
+  }
+  return (enumValues || []).map((value) => ({
+    value: String(value),
+    label: String(value),
+  }));
+}
+
+function collectElicitationContent(form, properties) {
+  const content = {};
+  for (const [name, schema] of Object.entries(properties)) {
+    const field = form.elements[name];
+    if (!field) continue;
+    if (schema.type === "boolean") {
+      content[name] = Boolean(field.checked);
+    } else if (schema.type === "array") {
+      content[name] = Array.from(field.selectedOptions || []).map((option) => option.value);
+    } else if (schema.type === "integer") {
+      content[name] = Number.parseInt(field.value || "0", 10);
+    } else if (schema.type === "number") {
+      content[name] = Number.parseFloat(field.value || "0");
+    } else {
+      content[name] = field.value || "";
+    }
+  }
+  return content;
+}
+
+async function respondElicitation(elicitationId, response, button) {
+  const originalText = button?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "处理中...";
+  }
+
+  try {
+    await api(`/elicitations/${encodeURIComponent(elicitationId)}/respond`, {
+      method: "POST",
+      body: response,
+    });
+    state.elicitations = state.elicitations.filter((item) => item.id !== elicitationId);
+    resolveElicitationMessage(elicitationId);
+  } catch (error) {
+    alert(error.message);
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
 }
 
 async function refreshAgentView() {
@@ -453,11 +720,14 @@ async function enterChat(project, session, options = {}) {
   state.currentSessionId = session.sessionId;
   state.messages = [];
   state.toolMessageIndexes = new Map();
+  state.permissionMessageIndexes = new Map();
+  state.elicitationMessageIndexes = new Map();
   state.pendingThought = null;
   chatTitle.textContent = project.name;
   clearMessages();
   showView("chat");
   connectEvents(session.sessionId);
+  mountCurrentSessionPermissions();
   replaySession(session);
   if (options.loadHistory) {
     loadSessionHistory(project, session.sessionId);
@@ -586,9 +856,16 @@ function messageKey(message) {
 
 function rebuildToolIndexes() {
   state.toolMessageIndexes = new Map();
+  state.permissionMessageIndexes = new Map();
   state.messages.forEach((message, index) => {
     if (message.toolCallId) {
       state.toolMessageIndexes.set(message.toolCallId, index);
+    }
+    if (message.permissionId) {
+      state.permissionMessageIndexes.set(message.permissionId, index);
+    }
+    if (message.elicitationId) {
+      state.elicitationMessageIndexes.set(message.elicitationId, index);
     }
   });
 }
@@ -607,6 +884,34 @@ function connectEvents(sessionId) {
     const payload = JSON.parse(event.data);
     const parsed = updateToChatEvent(payload.update || payload, { includeUser: false });
     if (parsed) applySessionEvent(parsed);
+  });
+  source.addEventListener("permission_request", (event) => {
+    const permission = JSON.parse(event.data);
+    state.permissions = [
+      permission,
+      ...state.permissions.filter((item) => item.id && item.id !== permission.id),
+    ];
+    upsertPermissionMessage(permission);
+    renderPermissionApprovals();
+  });
+  source.addEventListener("permission_resolved", (event) => {
+    const permission = JSON.parse(event.data);
+    state.permissions = state.permissions.filter((item) => item.id !== permission.id);
+    resolvePermissionMessage(permission.id);
+    renderPermissionApprovals();
+  });
+  source.addEventListener("elicitation_request", (event) => {
+    const elicitation = JSON.parse(event.data);
+    state.elicitations = [
+      elicitation,
+      ...state.elicitations.filter((item) => item.id && item.id !== elicitation.id),
+    ];
+    upsertElicitationMessage(elicitation);
+  });
+  source.addEventListener("elicitation_resolved", (event) => {
+    const elicitation = JSON.parse(event.data);
+    state.elicitations = state.elicitations.filter((item) => item.id !== elicitation.id);
+    resolveElicitationMessage(elicitation.id);
   });
   state.eventSource = source;
 }
@@ -717,7 +1022,9 @@ function renderProcessMessage(message) {
   const body = document.createElement("div");
   body.className = "process-body";
 
-  if (message.processType === "tool" && message.items?.length) {
+  if (message.processType === "elicitation") {
+    body.append(renderElicitationInline(message));
+  } else if (message.processType === "tool" && message.items?.length) {
     const list = document.createElement("div");
     list.className = "source-list";
     list.replaceChildren(
@@ -734,6 +1041,8 @@ function renderProcessMessage(message) {
       }),
     );
     body.append(list);
+  } else if (message.processType === "permission") {
+    body.append(renderPermissionInline(message));
   } else if (message.text) {
     const text = document.createElement("div");
     text.className = "process-text";
@@ -766,7 +1075,11 @@ function updateProcessMessageElement(message) {
   }
 
   message.bodyElement.replaceChildren();
-  if (message.processType === "tool" && message.items?.length) {
+  if (message.processType === "elicitation") {
+    message.bodyElement.append(renderElicitationInline(message));
+  } else if (message.processType === "permission") {
+    message.bodyElement.append(renderPermissionInline(message));
+  } else if (message.processType === "tool" && message.items?.length) {
     const list = document.createElement("div");
     list.className = "source-list";
     list.replaceChildren(...message.items.map(renderSourceItem));
@@ -777,6 +1090,94 @@ function updateProcessMessageElement(message) {
     text.textContent = message.text;
     message.bodyElement.append(text);
   }
+}
+
+function renderPermissionInline(message) {
+  const card = renderPermissionCard(message.permission);
+  card.classList.add("inline-permission-card");
+  if (message.resolved) {
+    card.classList.add("resolved");
+    card.querySelectorAll("button").forEach((button) => {
+      button.disabled = true;
+    });
+    const status = document.createElement("div");
+    status.className = "permission-resolved";
+    status.textContent = "已处理";
+    card.append(status);
+  }
+  return card;
+}
+
+function renderElicitationInline(message) {
+  const elicitation = message.elicitation || {};
+  const request = elicitation.request || {};
+  const card = document.createElement("form");
+  card.className = "elicitation-card";
+
+  const title = document.createElement("div");
+  title.className = "permission-title";
+  title.textContent = request.requestedSchema?.title || "Agent 需要你选择";
+
+  const text = document.createElement("div");
+  text.className = "permission-meta";
+  text.textContent = request.message || "请完成下面的输入";
+
+  card.append(title, text);
+
+  if (request.mode === "url") {
+    const link = document.createElement("a");
+    link.className = "primary-button small elicitation-link";
+    link.href = request.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "打开链接";
+    card.append(link);
+  } else {
+    const fields = document.createElement("div");
+    fields.className = "elicitation-fields";
+    const properties = request.requestedSchema?.properties || {};
+    for (const [name, schema] of Object.entries(properties)) {
+      fields.append(renderElicitationField(name, schema, request.requestedSchema?.required || []));
+    }
+    card.append(fields);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "permission-actions";
+  const decline = document.createElement("button");
+  decline.type = "button";
+  decline.className = "text-button";
+  decline.textContent = "拒绝";
+  decline.addEventListener("click", () => respondElicitation(elicitation.id, { action: "decline" }, decline));
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.className = "primary-button small";
+  submit.textContent = "提交";
+  actions.append(decline, submit);
+  card.append(actions);
+
+  card.addEventListener("submit", (event) => {
+    event.preventDefault();
+    respondElicitation(elicitation.id, {
+      action: "accept",
+      content: collectElicitationContent(card, request.requestedSchema?.properties || {}),
+    }, submit);
+  });
+
+  if (message.resolved) {
+    card.classList.add("resolved");
+    card.querySelectorAll("button, input, select, textarea, a").forEach((element) => {
+      if ("disabled" in element) {
+        element.disabled = true;
+      }
+    });
+    const status = document.createElement("div");
+    status.className = "permission-resolved";
+    status.textContent = "已处理";
+    card.append(status);
+  }
+
+  return card;
 }
 
 function renderSourceItem(item) {
@@ -922,6 +1323,81 @@ function upsertToolMessage(event) {
     state.messages.push(next);
     mountMessage(next);
   }
+}
+
+function upsertPermissionMessage(permission) {
+  if (!permission?.id) return;
+  const existingIndex = state.permissionMessageIndexes.get(permission.id);
+  const toolCall = permission.request?.toolCall || {};
+  const next = {
+    role: "process",
+    processType: "permission",
+    permissionId: permission.id,
+    permission,
+    title: `等待审批 · ${toolCall.title || toolTitle({ toolKind: toolCall.kind }) || "Agent 操作"}`,
+    statusText: "",
+    open: true,
+  };
+
+  if (existingIndex !== undefined && state.messages[existingIndex]) {
+    Object.assign(state.messages[existingIndex], next);
+    updateMountedMessage(state.messages[existingIndex]);
+    return;
+  }
+
+  state.permissionMessageIndexes.set(permission.id, state.messages.length);
+  state.messages.push(next);
+  mountMessage(next);
+}
+
+function resolvePermissionMessage(permissionId) {
+  const existingIndex = state.permissionMessageIndexes.get(permissionId);
+  if (existingIndex === undefined || !state.messages[existingIndex]) {
+    return;
+  }
+
+  const message = state.messages[existingIndex];
+  message.resolved = true;
+  message.statusText = "已处理";
+  message.open = false;
+  updateMountedMessage(message);
+}
+
+function upsertElicitationMessage(elicitation) {
+  if (!elicitation?.id) return;
+  const existingIndex = state.elicitationMessageIndexes.get(elicitation.id);
+  const next = {
+    role: "process",
+    processType: "elicitation",
+    elicitationId: elicitation.id,
+    elicitation,
+    title: "等待选择",
+    statusText: "",
+    open: true,
+  };
+
+  if (existingIndex !== undefined && state.messages[existingIndex]) {
+    Object.assign(state.messages[existingIndex], next);
+    updateMountedMessage(state.messages[existingIndex]);
+    return;
+  }
+
+  state.elicitationMessageIndexes.set(elicitation.id, state.messages.length);
+  state.messages.push(next);
+  mountMessage(next);
+}
+
+function resolveElicitationMessage(elicitationId) {
+  const existingIndex = state.elicitationMessageIndexes.get(elicitationId);
+  if (existingIndex === undefined || !state.messages[existingIndex]) {
+    return;
+  }
+
+  const message = state.messages[existingIndex];
+  message.resolved = true;
+  message.statusText = "已处理";
+  message.open = false;
+  updateMountedMessage(message);
 }
 
 function updateToChatEvent(update, options = {}) {

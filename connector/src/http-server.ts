@@ -1,7 +1,14 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
+import type {
+  CreateElicitationRequest,
+  CreateElicitationResponse,
+  ElicitationContentValue,
+} from "@agentclientprotocol/sdk";
 import { loadConnectorServerConfig } from "./config.js";
+import { ElicitationQueue } from "./elicitations.js";
 import { createAcpConnector, type AcpConnectorOptions } from "./index.js";
+import { PermissionQueue } from "./permissions.js";
 import {
   readProjects,
   removeProject,
@@ -30,8 +37,24 @@ type HistoryCapture = {
 export async function startAcpHttpServer(options: AcpHttpServerOptions) {
   const clients = new Set<EventClient>();
   const historyCaptures = new Set<HistoryCapture>();
+  const permissionQueue = new PermissionQueue((permission) => {
+    broadcastEvent(clients, "permission_request", permission, permission.request.sessionId);
+  });
+  const elicitationQueue = new ElicitationQueue((elicitation) => {
+    broadcastEvent(clients, "elicitation_request", elicitation, getElicitationSessionId(elicitation.request));
+  });
   const connector = await createAcpConnector({
     ...options,
+    clientCapabilities: {
+      ...options.clientCapabilities,
+      elicitation: options.clientCapabilities?.elicitation ?? {
+        form: {},
+        url: {},
+      },
+    },
+    onCreateElicitation:
+      options.onCreateElicitation ?? ((request) => elicitationQueue.request(request)),
+    onPermissionRequest: options.onPermissionRequest ?? ((request) => permissionQueue.request(request)),
     onSessionUpdate: async (notification) => {
       await options.onSessionUpdate?.(notification);
       for (const capture of historyCaptures) {
@@ -39,14 +62,7 @@ export async function startAcpHttpServer(options: AcpHttpServerOptions) {
           capture.updates.push(notification.update);
         }
       }
-      const payload = JSON.stringify(notification);
-      for (const client of clients) {
-        if (client.sessionId && client.sessionId !== notification.sessionId) {
-          continue;
-        }
-        client.response.write(`event: session_update\n`);
-        client.response.write(`data: ${payload}\n\n`);
-      }
+      broadcastEvent(clients, "session_update", notification, notification.sessionId);
     },
   });
 
@@ -77,6 +93,45 @@ export async function startAcpHttpServer(options: AcpHttpServerOptions) {
 
       if (request.method === "GET" && path === "/capabilities") {
         sendJson(response, 200, connector.initializeResult);
+        return;
+      }
+
+      if (request.method === "GET" && path === "/permissions") {
+        sendJson(response, 200, { permissions: permissionQueue.list() });
+        return;
+      }
+
+      if (request.method === "GET" && path === "/elicitations") {
+        sendJson(response, 200, { elicitations: elicitationQueue.list() });
+        return;
+      }
+
+      const elicitationMatch = path.match(/^\/elicitations\/([^/]+)\/respond$/);
+      if (request.method === "POST" && elicitationMatch) {
+        const body = await readJson(request);
+        const elicitation = elicitationQueue.respond(
+          decodeURIComponent(elicitationMatch[1]),
+          parseElicitationResponse(body),
+        );
+        broadcastEvent(
+          clients,
+          "elicitation_resolved",
+          elicitation,
+          getElicitationSessionId(elicitation.request),
+        );
+        sendJson(response, 200, { ok: true });
+        return;
+      }
+
+      const permissionMatch = path.match(/^\/permissions\/([^/]+)\/respond$/);
+      if (request.method === "POST" && permissionMatch) {
+        const body = await readJson(request);
+        const permission = permissionQueue.respond(
+          decodeURIComponent(permissionMatch[1]),
+          optionalString(body.optionId),
+        );
+        broadcastEvent(clients, "permission_resolved", permission, permission.request.sessionId);
+        sendJson(response, 200, { ok: true });
         return;
       }
 
@@ -234,6 +289,8 @@ export async function startAcpHttpServer(options: AcpHttpServerOptions) {
         client.response.end();
       }
       clients.clear();
+      permissionQueue.cancelAll();
+      elicitationQueue.cancelAll();
       await new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
@@ -261,6 +318,22 @@ function openEventStream(
   request.on("close", () => {
     clients.delete(client);
   });
+}
+
+function broadcastEvent(
+  clients: Set<EventClient>,
+  eventName: string,
+  payload: unknown,
+  sessionId?: string,
+) {
+  const data = JSON.stringify(payload);
+  for (const client of clients) {
+    if (client.sessionId && sessionId && client.sessionId !== sessionId) {
+      continue;
+    }
+    client.response.write(`event: ${eventName}\n`);
+    client.response.write(`data: ${data}\n\n`);
+  }
 }
 
 function setCorsHeaders(response: ServerResponse) {
@@ -299,6 +372,53 @@ function requireString(body: JsonObject, key: string) {
     throw new Error(`Missing required string field: ${key}`);
   }
   return value;
+}
+
+function optionalString(value: unknown) {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function parseElicitationResponse(body: JsonObject): CreateElicitationResponse {
+  const action = optionalString(body.action) ?? "accept";
+  if (action === "accept") {
+    return {
+      action: "accept",
+      content: isJsonObject(body.content) ? filterElicitationContent(body.content) : {},
+    };
+  }
+  if (action === "decline" || action === "cancel") {
+    return { action };
+  }
+  throw new Error(`Unsupported elicitation action: ${action}`);
+}
+
+function getElicitationSessionId(request: CreateElicitationRequest) {
+  return "sessionId" in request && typeof request.sessionId === "string"
+    ? request.sessionId
+    : undefined;
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function filterElicitationContent(value: JsonObject): Record<string, ElicitationContentValue> {
+  const content: Record<string, ElicitationContentValue> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (isElicitationContentValue(item)) {
+      content[key] = item;
+    }
+  }
+  return content;
+}
+
+function isElicitationContentValue(value: unknown): value is ElicitationContentValue {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string"))
+  );
 }
 
 function optionalStringArray(value: unknown) {

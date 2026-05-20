@@ -27,9 +27,9 @@ Use the top-right settings button if the connector URL or token is different.
 
 ## Current scope
 
-- Approval home tab with grouped todo/application lists.
+- Agent permission requests and elicitation forms render inline in the active chat.
 - Agent home tab reading the connected agent from `/health`.
 - Shared project list from `/projects`.
 - Sessions grouped under each project via `/sessions?cwd=...`.
 - Create/load Session and send messages through ACP connector endpoints.
-- Live agent updates through the connector SSE endpoint `/events`.
+- Live agent updates, inline permission approval events, and elicitation events through the connector SSE endpoint `/events`.
