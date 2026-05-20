@@ -5,5 +5,9 @@
   "scripts": {
     "dev": "node server.js",
     "check": "node --check server.js && node --check src/app.js"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.5",
+    "marked": "^18.0.4"
   }
 }

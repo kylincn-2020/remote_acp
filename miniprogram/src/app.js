@@ -1,4 +1,15 @@
+import { marked } from "/vendor/marked.esm.js";
+import DOMPurify from "/vendor/purify.es.mjs";
+
 const DEFAULT_CONNECTOR_URL = "http://127.0.0.1:17890";
+
+marked.setOptions({
+  async: false,
+  breaks: true,
+  gfm: true,
+  mangle: false,
+  headerIds: false,
+});
 
 const approvalData = {
   todo: [
@@ -632,7 +643,7 @@ function updateMountedMessage(message) {
   if (message.role === "process") {
     updateProcessMessageElement(message);
   } else if (message.contentElement) {
-    message.contentElement.textContent = message.text;
+    setMessageContent(message);
   }
   messageList.scrollTop = messageList.scrollHeight;
 }
@@ -645,12 +656,40 @@ function renderMessageElement(message) {
   const item = document.createElement("div");
   item.className = `message ${message.role}`;
   const card = document.createElement("div");
-  card.className = "message-card";
-  card.textContent = message.text;
+  card.className = message.role === "agent" ? "message-card markdown-body" : "message-card plain-text";
   item.append(card);
   message.element = item;
   message.contentElement = card;
+  setMessageContent(message);
   return item;
+}
+
+function setMessageContent(message) {
+  const element = message.contentElement;
+  if (!element) return;
+
+  if (message.role !== "agent") {
+    element.textContent = message.text;
+    return;
+  }
+
+  const html = marked.parse(markdownRenderSource(message.text || ""));
+  element.innerHTML = DOMPurify.sanitize(html, {
+    ADD_ATTR: ["target"],
+  });
+  element.querySelectorAll("a[href]").forEach((link) => {
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+  });
+}
+
+function markdownRenderSource(text) {
+  let source = String(text).trim();
+  const fenced = source.match(/^```(?:\s*(?:markdown|md|gfm))?\s*\n([\s\S]*?)\n```$/i);
+  if (fenced) {
+    source = fenced[1].trim();
+  }
+  return source.replace(/^\s*(?:mark\s*down|markdown|md)\s*(?=#|\n)/i, "").trimStart();
 }
 
 function renderProcessMessage(message) {
