@@ -141,11 +141,18 @@ document.querySelector("#saveProjectButton").addEventListener("click", async (ev
     },
   });
   state.projects = Array.isArray(store.projects) ? store.projects : [];
-  state.sessionsByProject.set(slugify(name), []);
+  const project = state.projects.find((item) => item.id === slugify(name));
+  if (project) {
+    state.openProjectIds.add(project.id);
+    state.sessionsByProject.delete(project.id);
+  }
   document.querySelector("#projectNameInput").value = "";
   document.querySelector("#projectCwdInput").value = "";
   projectDialog.close();
   renderProjects();
+  if (project) {
+    loadProjectSessionsAndRender(project);
+  }
 });
 
 document.querySelector("#saveSessionSettingsButton").addEventListener("click", async (event) => {
