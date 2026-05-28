@@ -35,8 +35,7 @@ path with `CONNECTOR_CONFIG_PATH`.
   "target": {
     "kind": "local",
     "command": "E:\\data\\nodejs\\node_global\\node_modules\\opencode-ai\\bin\\opencode.exe",
-    "args": ["acp"],
-    "cwd": "E:\\develop\\AI\\remote_acp"
+    "args": ["acp"]
   },
   "server": {
     "appServerUrl": "http://127.0.0.1:17892",
@@ -48,7 +47,12 @@ path with `CONNECTOR_CONFIG_PATH`.
     "exposeTerminal": false,
     "autoApprovePermission": false
   },
-  "allowedRoots": ["E:\\develop\\AI\\remote_acp"],
+  "allowedRoots": [],
+  "logging": {
+    "level": "info",
+    "file": "logs/connector.log",
+    "console": true
+  },
   "projects": [
     {
       "id": "remote_acp",
@@ -59,13 +63,42 @@ path with `CONNECTOR_CONFIG_PATH`.
 }
 ```
 
+For a local target, `target.cwd` is optional. When omitted, the connector uses
+the directory where `npm run dev` was started.
+
 Environment variables still work and override the config file:
 
 - `ACP_COMMAND`, `ACP_ARGS`, `ACP_CWD`
 - `ACP_WS_URL`, `ACP_AUTH_TOKEN`
 - `APP_SERVER_URL`, `APP_SERVER_TOKEN`, `APP_SERVER_USER_ID`
+- `CONNECTOR_LOG_LEVEL`, `CONNECTOR_LOG_FILE`, `CONNECTOR_LOG_CONSOLE`
 - `ACP_EXPOSE_FS`, `ACP_EXPOSE_TERMINAL`, `ACP_AUTO_APPROVE`
 - `ACP_ALLOWED_ROOTS`
+
+## Logging
+
+Connector logs are written to `logs/connector.log` by default. Configure the
+log level and path in `config/config.json`:
+
+```json
+{
+  "logging": {
+    "level": "debug",
+    "file": "logs/connector.log",
+    "console": true
+  }
+}
+```
+
+Supported levels are `error`, `warn`, `info`, and `debug`. Environment
+variables override the config file:
+
+```powershell
+$env:CONNECTOR_LOG_LEVEL="debug"
+$env:CONNECTOR_LOG_FILE="logs/connector-debug.log"
+$env:CONNECTOR_LOG_CONSOLE="false"
+npm run dev
+```
 
 ## Projects
 

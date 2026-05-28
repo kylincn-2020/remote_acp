@@ -67,7 +67,10 @@ export class ConnectorService {
   readonly activeTurns = new Map<string, string>();
   nextEventId = 1;
 
-  private constructor(readonly connector: AcpConnector) {
+  private constructor(
+    readonly connector: AcpConnector,
+    private readonly logger?: AcpConnectorOptions["logger"],
+  ) {
     this.permissionQueue = new PermissionQueue((permission) => {
       this.broadcastEvent("permission_request", permission, permission.request.sessionId);
     });
@@ -81,7 +84,7 @@ export class ConnectorService {
   }
 
   static async create(options: AcpConnectorOptions) {
-    const service = new ConnectorService(undefined as unknown as AcpConnector);
+    const service = new ConnectorService(undefined as unknown as AcpConnector, options.logger?.child("service"));
     const connector = await createAcpConnector({
       ...options,
       clientCapabilities: {
@@ -246,6 +249,7 @@ export class ConnectorService {
           });
         }
         this.activeTurns.set(sessionId, messageId);
+        this.logger?.info(`accepted turn session=${sessionId} message=${messageId}`);
         this.broadcastEvent("turn_start", { sessionId, messageId }, sessionId);
         void this.runPrompt({
           sessionId,
@@ -354,6 +358,7 @@ export class ConnectorService {
     attachments?: ContentBlock[];
   }) {
     try {
+      this.logger?.info(`running turn session=${input.sessionId} message=${input.messageId}`);
       const response = await this.connector.sendText({
         sessionId: input.sessionId,
         messageId: input.messageId,
@@ -369,7 +374,13 @@ export class ConnectorService {
         },
         input.sessionId,
       );
+      this.logger?.info(`completed turn session=${input.sessionId} message=${input.messageId}`);
     } catch (error) {
+      this.logger?.error(
+        `failed turn session=${input.sessionId} message=${input.messageId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
       this.broadcastEvent(
         "turn_error",
         {

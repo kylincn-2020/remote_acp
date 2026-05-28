@@ -5,6 +5,7 @@ import { resolve, sep } from "node:path";
 import { Readable, Writable } from "node:stream";
 import WebSocket from "ws";
 import * as acp from "@agentclientprotocol/sdk";
+import type { Logger } from "./logger.js";
 import type {
   Client,
   ContentBlock,
@@ -79,6 +80,7 @@ export type AcpConnectorOptions = {
   ) => Promise<Record<string, unknown>> | Record<string, unknown>;
   onExtNotification?: (method: string, params: Record<string, unknown>) => Promise<void> | void;
   onError?: (error: unknown) => void;
+  logger?: Pick<Logger, "debug" | "info" | "warn" | "error" | "child">;
 };
 
 export type AcpPromptInput = {
@@ -136,7 +138,7 @@ export type AcpConnector = AcpProtocolApi & {
 type TransportCleanup = () => Promise<void> | void;
 
 export async function createAcpConnector(options: AcpConnectorOptions): Promise<AcpConnector> {
-  const { stream, cleanup } = await openTransport(options.target);
+  const { stream, cleanup } = await openTransport(options.target, options.logger);
   const client = new ConnectorClient(options);
   const connection = new acp.ClientSideConnection(() => client, stream);
   const api = bindAcpApi(connection);
@@ -372,17 +374,21 @@ function bindAcpApi(connection: acp.ClientSideConnection): AcpProtocolApi {
 
 async function openTransport(
   target: AcpTarget,
+  logger?: AcpConnectorOptions["logger"],
 ): Promise<{ stream: acp.Stream; cleanup: TransportCleanup }> {
   if (target.kind === "local") {
-    return openLocalTransport(target);
+    return openLocalTransport(target, logger);
   }
 
-  return openWebSocketTransport(target);
+  return openWebSocketTransport(target, logger);
 }
 
 function openLocalTransport(
   target: Extract<AcpTarget, { kind: "local" }>,
+  logger?: AcpConnectorOptions["logger"],
 ): { stream: acp.Stream; cleanup: TransportCleanup } {
+  const transportLogger = logger?.child("local-transport");
+  transportLogger?.info(`starting local ACP process ${target.command}`);
   const child = spawn(target.command, target.args ?? [], {
     cwd: target.cwd,
     env: {
@@ -394,7 +400,18 @@ function openLocalTransport(
   });
 
   child.stderr.on("data", (data) => {
-    process.stderr.write(`[acp:${target.command}] ${data}`);
+    const text = data.toString().trimEnd();
+    if (text) {
+      transportLogger?.warn(text);
+    }
+  });
+
+  child.on("exit", (code, signal) => {
+    transportLogger?.warn(`local ACP process exited code=${code ?? ""} signal=${signal ?? ""}`);
+  });
+
+  child.on("error", (error) => {
+    transportLogger?.error(`local ACP process error: ${error.message}`);
   });
 
   const output = Writable.toWeb(child.stdin) as WritableStream<Uint8Array>;
@@ -409,7 +426,10 @@ function openLocalTransport(
 
 async function openWebSocketTransport(
   target: Extract<AcpTarget, { kind: "websocket" }>,
+  logger?: AcpConnectorOptions["logger"],
 ): Promise<{ stream: acp.Stream; cleanup: TransportCleanup }> {
+  const transportLogger = logger?.child("websocket-transport");
+  transportLogger?.info(`connecting ACP websocket ${target.url}`);
   const socket = new WebSocket(target.url, target.protocols, {
     headers: target.headers,
   });
@@ -438,7 +458,10 @@ async function openWebSocketTransport(
       });
 
       socket.on("close", () => controller.close());
-      socket.on("error", (error) => controller.error(error));
+      socket.on("error", (error) => {
+        transportLogger?.error(`ACP websocket error: ${error.message}`);
+        controller.error(error);
+      });
     },
   });
 
@@ -462,6 +485,7 @@ async function openWebSocketTransport(
   return {
     stream: acp.ndJsonStream(output, input),
     cleanup: () => {
+      transportLogger?.info("closing ACP websocket");
       socket.close();
     },
   };

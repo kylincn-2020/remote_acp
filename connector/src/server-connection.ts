@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import type { Logger } from "./logger.js";
 import type { ConnectorRequest, ConnectorResponse, ConnectorStreamSink } from "./service.js";
 
 export type ServerConnectionOptions = {
@@ -8,7 +9,7 @@ export type ServerConnectionOptions = {
   agentInfo?: unknown;
   handleRequest: (request: ConnectorRequest) => Promise<ConnectorResponse>;
   openStream: (request: ConnectorRequest, sink: ConnectorStreamSink) => (() => void) | void;
-  logger?: (message: string) => void;
+  logger?: Pick<Logger, "debug" | "info" | "warn" | "error">;
 };
 
 type ServerHttpRequest = {
@@ -69,7 +70,7 @@ export function connectToAppServer(options: ServerConnectionOptions): ServerConn
 
   const open = () => {
     const socketUrl = toConnectorSocketUrl(options.serverUrl, options.serverToken, options.userId);
-    log(options, `connecting to app server ${redactToken(socketUrl)}`);
+    info(options, `connecting to app server ${redactToken(socketUrl)}`);
     const nextSocket = new WebSocket(toConnectorSocketUrl(options.serverUrl, options.serverToken, options.userId), {
       headers: options.serverToken
         ? {
@@ -82,7 +83,7 @@ export function connectToAppServer(options: ServerConnectionOptions): ServerConn
     nextSocket.on("open", () => {
       reconnectDelayMs = 1000;
       awaitingPong = false;
-      log(options, "connected to app server");
+      info(options, "connected to app server");
       send(nextSocket, {
         type: "connector.ready",
         agentInfo: options.agentInfo,
@@ -114,7 +115,7 @@ export function connectToAppServer(options: ServerConnectionOptions): ServerConn
       }
 
       if (message.type === "stream.close") {
-        log(options, `stream close requested ${message.streamId}`);
+        debug(options, `stream close requested ${message.streamId}`);
         streams.get(message.streamId)?.();
         streams.delete(message.streamId);
         return;
@@ -125,18 +126,18 @@ export function connectToAppServer(options: ServerConnectionOptions): ServerConn
       }
 
       if (message.path.startsWith("/events")) {
-        log(options, `event stream ${message.method} ${message.path}`);
+        debug(options, `event stream ${message.method} ${message.path}`);
         proxyEventStream(nextSocket, streams, options, message);
         return;
       }
 
-      log(options, `request ${message.method} ${message.path}`);
+      debug(options, `request ${message.method} ${message.path}`);
       await proxyHttpRequest(nextSocket, options, message);
     });
 
     nextSocket.on("error", (error) => {
       // The app server may be down or restarting. Close will schedule a retry.
-      log(options, `app server connection error: ${error.message}`);
+      warn(options, `app server connection error: ${error.message}`);
     });
 
     nextSocket.on("close", (code, reason) => {
@@ -145,7 +146,7 @@ export function connectToAppServer(options: ServerConnectionOptions): ServerConn
       }
       stopHeartbeat();
       abortStreams();
-      log(options, `app server connection closed (${code}${reason.length ? ` ${reason.toString()}` : ""})`);
+      warn(options, `app server connection closed (${code}${reason.length ? ` ${reason.toString()}` : ""})`);
       scheduleReconnect();
     });
   };
@@ -179,7 +180,7 @@ async function proxyHttpRequest(
       headers: requestHeaders(message.headers),
       body: shouldSendBody(message.method) ? message.body ?? "" : undefined,
     });
-    log(options, `response ${message.method} ${message.path} -> ${response.status}`);
+    debug(options, `response ${message.method} ${message.path} -> ${response.status}`);
     send(socket, {
       type: "http.response",
       requestId: message.requestId,
@@ -188,7 +189,7 @@ async function proxyHttpRequest(
       body: response.body ?? "",
     });
   } catch (error) {
-    log(
+    logError(
       options,
       `request failed ${message.method} ${message.path}: ${
         error instanceof Error ? error.message : String(error)
@@ -222,7 +223,7 @@ function proxyEventStream(
       headers: requestHeaders(message.headers),
     }, {
       start(response) {
-        log(options, `event stream started ${message.path} -> ${response.status}`);
+        debug(options, `event stream started ${message.path} -> ${response.status}`);
         send(socket, {
           type: "stream.start",
           streamId: message.requestId,
@@ -238,16 +239,16 @@ function proxyEventStream(
         });
       },
       end() {
-        log(options, `event stream ended ${message.path}`);
+        debug(options, `event stream ended ${message.path}`);
         send(socket, { type: "stream.end", streamId: message.requestId });
         streams.delete(message.requestId);
       },
-      error(error) {
-        log(options, `event stream failed ${message.path}: ${error}`);
+      error(errorMessage) {
+        logError(options, `event stream failed ${message.path}: ${errorMessage}`);
         send(socket, {
           type: "stream.error",
           streamId: message.requestId,
-          error,
+          error: errorMessage,
         });
         streams.delete(message.requestId);
       },
@@ -255,7 +256,7 @@ function proxyEventStream(
     streams.set(message.requestId, cleanup ?? (() => undefined));
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
-    log(options, `event stream failed ${message.path}: ${messageText}`);
+    logError(options, `event stream failed ${message.path}: ${messageText}`);
     send(socket, {
       type: "stream.error",
       streamId: message.requestId,
@@ -300,8 +301,20 @@ function send(socket: WebSocket, message: unknown) {
   }
 }
 
-function log(options: ServerConnectionOptions, message: string) {
-  options.logger?.(`[server-connection] ${message}`);
+function debug(options: ServerConnectionOptions, message: string) {
+  options.logger?.debug(message);
+}
+
+function info(options: ServerConnectionOptions, message: string) {
+  options.logger?.info(message);
+}
+
+function warn(options: ServerConnectionOptions, message: string) {
+  options.logger?.warn(message);
+}
+
+function logError(options: ServerConnectionOptions, message: string) {
+  options.logger?.error(message);
 }
 
 function redactToken(url: string) {

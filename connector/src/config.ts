@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { AcpConnectorOptions, AcpTarget } from "./index.js";
+import { parseLogLevel, type LogLevel } from "./logger.js";
 
 export type ConnectorConfig = {
   target?: AcpTargetConfig;
@@ -18,6 +19,11 @@ export type ConnectorConfig = {
   client?: {
     name?: string;
     version?: string;
+  };
+  logging?: {
+    level?: LogLevel;
+    file?: string;
+    console?: boolean;
   };
   projects?: ConnectorProject[];
 };
@@ -49,6 +55,11 @@ export type ConnectorAppConfig = AcpConnectorOptions & {
   appServerUrl: string;
   appServerToken?: string;
   appServerUserId?: string;
+  logging: {
+    level: LogLevel;
+    file: string;
+    console: boolean;
+  };
 };
 
 export function defaultConnectorConfigPath() {
@@ -107,6 +118,12 @@ export function resolveConnectorAppConfig(
     appServerToken: process.env.APP_SERVER_TOKEN ?? config.server?.appServerToken,
     appServerUserId:
       process.env.APP_SERVER_USER_ID ?? config.server?.appServerUserId ?? "default",
+    logging: {
+      level:
+        parseLogLevel(process.env.CONNECTOR_LOG_LEVEL) ?? config.logging?.level ?? "info",
+      file: process.env.CONNECTOR_LOG_FILE ?? config.logging?.file ?? "logs/connector.log",
+      console: envBoolean("CONNECTOR_LOG_CONSOLE", config.logging?.console ?? true),
+    },
   };
 }
 
@@ -174,6 +191,7 @@ function normalizeConfig(value: unknown): ConnectorConfig {
     permissions: normalizePermissions(value.permissions),
     allowedRoots: optionalStringArray(value.allowedRoots),
     client: normalizeClient(value.client),
+    logging: normalizeLogging(value.logging),
     projects: normalizeProjects(value.projects),
   };
 }
@@ -267,6 +285,24 @@ function normalizeClient(value: unknown): ConnectorConfig["client"] {
   return {
     name: optionalString(value.name),
     version: optionalString(value.version),
+  };
+}
+
+function normalizeLogging(value: unknown): ConnectorConfig["logging"] {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isObject(value)) {
+    throw new Error("Connector logging config must be an object");
+  }
+  const level = value.level === undefined ? undefined : parseLogLevel(value.level);
+  if (value.level !== undefined && !level) {
+    throw new Error("Connector logging.level must be error, warn, info, or debug");
+  }
+  return {
+    level,
+    file: optionalString(value.file),
+    console: optionalBoolean(value.console),
   };
 }
 

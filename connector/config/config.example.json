@@ -2,8 +2,7 @@
   "target": {
     "kind": "local",
     "command": "E:\\data\\nodejs\\node_global\\node_modules\\opencode-ai\\bin\\opencode.exe",
-    "args": ["acp"],
-    "cwd": "E:\\develop\\AI\\remote_acp"
+    "args": ["acp"]
   },
   "server": {
     "appServerUrl": "http://127.0.0.1:17892",
@@ -15,10 +14,15 @@
     "exposeTerminal": false,
     "autoApprovePermission": false
   },
-  "allowedRoots": ["E:\\develop\\AI\\remote_acp"],
+  "allowedRoots": [],
   "client": {
     "name": "remote-acp",
     "version": "0.1.0"
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/connector.log",
+    "console": true
   },
   "projects": [
     {
