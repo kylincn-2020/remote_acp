@@ -302,7 +302,7 @@ export class ConnectorService {
       },
     });
     sink.chunk(`event: ready\ndata: {"ok":true}\n\n`);
-    this.replayBufferedEvents(sink, parseLastEventId(request), sessionId);
+    this.replayBufferedEvents(sink, parseResumeEventId(request, url), sessionId);
     const client = { write: (text: string) => sink.chunk(text), sessionId };
     this.clients.add(client);
     return () => {
@@ -403,8 +403,15 @@ function formatSseEvent(event: BufferedEvent) {
   return `id: ${event.id}\nevent: ${event.eventName}\ndata: ${JSON.stringify(event.payload)}\n\n`;
 }
 
-function parseLastEventId(request: ConnectorRequest) {
-  const raw = request.headers?.["last-event-id"];
+function parseResumeEventId(request: ConnectorRequest, url: URL) {
+  const headerId = parseEventId(request.headers?.["last-event-id"]);
+  const queryId = parseEventId(url.searchParams.get("afterSeq"));
+  if (headerId === undefined) return queryId;
+  if (queryId === undefined) return headerId;
+  return Math.max(headerId, queryId);
+}
+
+function parseEventId(raw: string | null | undefined) {
   if (!raw) return undefined;
   const id = Number(raw);
   return Number.isFinite(id) ? id : undefined;

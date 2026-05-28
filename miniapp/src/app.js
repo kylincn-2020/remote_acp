@@ -34,6 +34,8 @@ const state = {
   currentSession: null,
   currentSessionId: null,
   eventSource: null,
+  eventReconnectTimer: null,
+  eventSeqBySession: new Map(),
   sendingMessage: false,
   currentTurnMessageId: null,
   messages: [],
@@ -527,9 +529,7 @@ async function refreshAgentView() {
   state.openProjectIds = new Set(state.projects[0] ? [state.projects[0].id] : []);
   agentNotice.textContent = `${state.agent?.name || "Agent"} 使用 connector 中配置的共享项目。展开项目可查看该项目下的 Session。`;
   renderProjects();
-  if (state.projects[0]) {
-    loadProjectSessionsAndRender(state.projects[0]);
-  }
+  await loadAllProjectSessionsAndRender();
 }
 
 async function loadProjectSessions(project) {
@@ -551,6 +551,25 @@ async function loadProjectSessionsAndRender(project) {
   renderProjects();
   await loadProjectSessions(project);
   state.loadingProjectIds.delete(project.id);
+  renderProjects();
+}
+
+async function loadAllProjectSessionsAndRender() {
+  const pendingProjects = state.projects.filter(
+    (project) => !state.sessionsByProject.has(project.id) && !state.loadingProjectIds.has(project.id),
+  );
+  if (pendingProjects.length === 0) {
+    return;
+  }
+
+  for (const project of pendingProjects) {
+    state.loadingProjectIds.add(project.id);
+  }
+  renderProjects();
+  await Promise.allSettled(pendingProjects.map((project) => loadProjectSessions(project)));
+  for (const project of pendingProjects) {
+    state.loadingProjectIds.delete(project.id);
+  }
   renderProjects();
 }
 
@@ -842,19 +861,32 @@ function connectEvents(sessionId) {
   if (state.eventSource) {
     state.eventSource.close();
   }
+  if (state.eventReconnectTimer) {
+    clearTimeout(state.eventReconnectTimer);
+    state.eventReconnectTimer = null;
+  }
   const url = new URL(`${state.connectorUrl.replace(/\/$/, "")}/events`);
   url.searchParams.set("sessionId", sessionId);
   url.searchParams.set("userId", state.userId);
+  const afterSeq = state.eventSeqBySession.get(sessionId);
+  if (afterSeq !== undefined) {
+    url.searchParams.set("afterSeq", String(afterSeq));
+  }
   if (state.token) {
     url.searchParams.set("token", state.token);
   }
   const source = new EventSource(url);
   source.addEventListener("session_update", (event) => {
+    rememberEventSeq(sessionId, event);
     const payload = JSON.parse(event.data);
     const parsed = updateToChatEvent(payload.update || payload, { includeUser: false });
     if (parsed) applySessionEvent(parsed);
   });
+  source.addEventListener("turn_start", (event) => {
+    rememberEventSeq(sessionId, event);
+  });
   source.addEventListener("permission_request", (event) => {
+    rememberEventSeq(sessionId, event);
     const permission = JSON.parse(event.data);
     state.permissions = [
       permission,
@@ -864,12 +896,14 @@ function connectEvents(sessionId) {
     renderPermissionApprovals();
   });
   source.addEventListener("permission_resolved", (event) => {
+    rememberEventSeq(sessionId, event);
     const permission = JSON.parse(event.data);
     state.permissions = state.permissions.filter((item) => item.id !== permission.id);
     resolvePermissionMessage(permission.id);
     renderPermissionApprovals();
   });
   source.addEventListener("elicitation_request", (event) => {
+    rememberEventSeq(sessionId, event);
     const elicitation = JSON.parse(event.data);
     state.elicitations = [
       elicitation,
@@ -878,20 +912,42 @@ function connectEvents(sessionId) {
     upsertElicitationMessage(elicitation);
   });
   source.addEventListener("elicitation_resolved", (event) => {
+    rememberEventSeq(sessionId, event);
     const elicitation = JSON.parse(event.data);
     state.elicitations = state.elicitations.filter((item) => item.id !== elicitation.id);
     resolveElicitationMessage(elicitation.id);
   });
   source.addEventListener("turn_complete", (event) => {
+    rememberEventSeq(sessionId, event);
     const turn = JSON.parse(event.data);
     finishTurn(turn);
   });
   source.addEventListener("turn_error", (event) => {
+    rememberEventSeq(sessionId, event);
     const turn = JSON.parse(event.data);
     finishTurn(turn);
     alert(turn.message || "Agent 处理失败");
   });
+  source.onerror = () => {
+    if (state.currentSessionId !== sessionId || state.eventSource !== source) {
+      return;
+    }
+    source.close();
+    state.eventReconnectTimer = setTimeout(() => {
+      state.eventReconnectTimer = null;
+      if (state.currentSessionId === sessionId) {
+        connectEvents(sessionId);
+      }
+    }, 1000);
+  };
   state.eventSource = source;
+}
+
+function rememberEventSeq(sessionId, event) {
+  const id = Number(event.lastEventId);
+  if (Number.isFinite(id)) {
+    state.eventSeqBySession.set(sessionId, id);
+  }
 }
 
 function setComposerBusy(busy, messageId = null) {
