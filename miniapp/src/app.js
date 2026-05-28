@@ -1,7 +1,8 @@
 import { marked } from "/vendor/marked.esm.js";
 import DOMPurify from "/vendor/purify.es.mjs";
 
-const DEFAULT_CONNECTOR_URL = "http://127.0.0.1:17890";
+const DEFAULT_CONNECTOR_URL =
+  window.location.port === "17893" ? "http://127.0.0.1:17892" : window.location.origin || "http://127.0.0.1:17892";
 
 marked.setOptions({
   async: false,
@@ -19,7 +20,8 @@ const fallbackAgent = {
 };
 
 const state = {
-  connectorUrl: localStorage.getItem("connectorUrl") || DEFAULT_CONNECTOR_URL,
+  connectorUrl: loadConnectorUrl(),
+  userId: loadUserId(),
   token: localStorage.getItem("connectorToken") || "",
   activeHomeTab: "approval",
   activeApprovalTab: "todo",
@@ -32,7 +34,8 @@ const state = {
   currentSession: null,
   currentSessionId: null,
   eventSource: null,
-  permissionEventSource: null,
+  sendingMessage: false,
+  currentTurnMessageId: null,
   messages: [],
   toolMessageIndexes: new Map(),
   permissionMessageIndexes: new Map(),
@@ -55,6 +58,7 @@ const agentNotice = document.querySelector("#agentNotice");
 const chatTitle = document.querySelector("#chatTitle");
 const messageList = document.querySelector("#messageList");
 const messageInput = document.querySelector("#messageInput");
+const sendButton = document.querySelector(".send-button");
 const settingsDialog = document.querySelector("#settingsDialog");
 const projectDialog = document.querySelector("#projectDialog");
 const sessionDialog = document.querySelector("#sessionDialog");
@@ -100,7 +104,6 @@ document.querySelector("#saveSettingsButton").addEventListener("click", (event) 
   localStorage.setItem("connectorUrl", state.connectorUrl);
   localStorage.setItem("connectorToken", state.token);
   settingsDialog.close();
-  connectPermissionEvents();
   loadHome();
 });
 
@@ -158,14 +161,21 @@ document.querySelector("#saveSessionSettingsButton").addEventListener("click", a
 document.querySelector("#composerForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const text = messageInput.value.trim();
-  if (!text || !state.currentSession) return;
-  appendMessage("user", text);
+  if (!text || !state.currentSession || state.sendingMessage) return;
+  const messageId = createMessageId();
+  appendMessage("user", text, { messageId });
   ensurePendingThought();
   messageInput.value = "";
-  await api(`/sessions/${encodeURIComponent(state.currentSession.sessionId)}/messages`, {
-    method: "POST",
-    body: { text },
-  });
+  setComposerBusy(true, messageId);
+  try {
+    await api(`/sessions/${encodeURIComponent(state.currentSession.sessionId)}/messages`, {
+      method: "POST",
+      body: { text, messageId },
+    });
+  } catch (error) {
+    alert(error.message);
+    setComposerBusy(false);
+  }
 });
 
 messageInput.addEventListener("input", () => {
@@ -174,7 +184,6 @@ messageInput.addEventListener("input", () => {
 });
 
 renderApproval();
-connectPermissionEvents();
 loadHome();
 
 function switchHomeTab(tab) {
@@ -184,6 +193,10 @@ function switchHomeTab(tab) {
   });
   approvalHome.classList.toggle("hidden", tab !== "approval");
   agentHome.classList.toggle("hidden", tab !== "agent");
+}
+
+function loadConnectorUrl() {
+  return localStorage.getItem("connectorUrl") || DEFAULT_CONNECTOR_URL;
 }
 
 function showView(name) {
@@ -357,52 +370,6 @@ function renderAgents() {
       },
     }),
   );
-}
-
-function connectPermissionEvents() {
-  if (state.permissionEventSource) {
-    state.permissionEventSource.close();
-  }
-
-  const url = new URL(`${state.connectorUrl.replace(/\/$/, "")}/events`);
-  if (state.token) {
-    url.searchParams.set("token", state.token);
-  }
-
-  const source = new EventSource(url);
-  source.addEventListener("permission_request", (event) => {
-    const permission = JSON.parse(event.data);
-    state.permissions = [
-      permission,
-      ...state.permissions.filter((item) => item.id && item.id !== permission.id),
-    ];
-    if (state.currentSessionId === permission.request?.sessionId) {
-      upsertPermissionMessage(permission);
-    }
-    renderPermissionApprovals();
-  });
-  source.addEventListener("permission_resolved", (event) => {
-    const permission = JSON.parse(event.data);
-    state.permissions = state.permissions.filter((item) => item.id !== permission.id);
-    resolvePermissionMessage(permission.id);
-    renderPermissionApprovals();
-  });
-  source.addEventListener("elicitation_request", (event) => {
-    const elicitation = JSON.parse(event.data);
-    state.elicitations = [
-      elicitation,
-      ...state.elicitations.filter((item) => item.id && item.id !== elicitation.id),
-    ];
-    if (state.currentSessionId === elicitation.request?.sessionId) {
-      upsertElicitationMessage(elicitation);
-    }
-  });
-  source.addEventListener("elicitation_resolved", (event) => {
-    const elicitation = JSON.parse(event.data);
-    state.elicitations = state.elicitations.filter((item) => item.id !== elicitation.id);
-    resolveElicitationMessage(elicitation.id);
-  });
-  state.permissionEventSource = source;
 }
 
 async function respondPermission(permissionId, optionId, button) {
@@ -723,6 +690,7 @@ async function enterChat(project, session, options = {}) {
   state.permissionMessageIndexes = new Map();
   state.elicitationMessageIndexes = new Map();
   state.pendingThought = null;
+  setComposerBusy(false);
   chatTitle.textContent = project.name;
   clearMessages();
   showView("chat");
@@ -876,6 +844,7 @@ function connectEvents(sessionId) {
   }
   const url = new URL(`${state.connectorUrl.replace(/\/$/, "")}/events`);
   url.searchParams.set("sessionId", sessionId);
+  url.searchParams.set("userId", state.userId);
   if (state.token) {
     url.searchParams.set("token", state.token);
   }
@@ -913,7 +882,33 @@ function connectEvents(sessionId) {
     state.elicitations = state.elicitations.filter((item) => item.id !== elicitation.id);
     resolveElicitationMessage(elicitation.id);
   });
+  source.addEventListener("turn_complete", (event) => {
+    const turn = JSON.parse(event.data);
+    finishTurn(turn);
+  });
+  source.addEventListener("turn_error", (event) => {
+    const turn = JSON.parse(event.data);
+    finishTurn(turn);
+    alert(turn.message || "Agent 处理失败");
+  });
   state.eventSource = source;
+}
+
+function setComposerBusy(busy, messageId = null) {
+  state.sendingMessage = busy;
+  state.currentTurnMessageId = busy ? messageId : null;
+  messageInput.disabled = busy;
+  sendButton.disabled = busy;
+}
+
+function finishTurn(turn) {
+  if (turn.sessionId !== state.currentSessionId) {
+    return;
+  }
+  if (state.currentTurnMessageId && turn.messageId !== state.currentTurnMessageId) {
+    return;
+  }
+  setComposerBusy(false);
 }
 
 function openSessionSettings() {
@@ -1642,10 +1637,11 @@ function rowButton({ title, subtitle, badge, onClick }) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(`${state.connectorUrl.replace(/\/$/, "")}${path}`, {
+  const response = await fetch(apiUrl(path), {
     method: options.method || "GET",
     headers: {
       "Content-Type": "application/json",
+      "X-Remote-Acp-User-Id": state.userId,
       ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -1655,6 +1651,25 @@ async function api(path, options = {}) {
     throw new Error(data.message || data.error || `${response.status} ${response.statusText}`);
   }
   return data;
+}
+
+function apiUrl(path) {
+  const url = new URL(`${state.connectorUrl.replace(/\/$/, "")}${path}`);
+  url.searchParams.set("userId", state.userId);
+  return url.toString();
+}
+
+function loadUserId() {
+  const fromUrl = new URLSearchParams(window.location.search).get("userId")?.trim();
+  if (fromUrl) {
+    localStorage.setItem("miniappUserId", fromUrl);
+    return fromUrl;
+  }
+  return localStorage.getItem("miniappUserId") || "default";
+}
+
+function createMessageId() {
+  return globalThis.crypto?.randomUUID?.() ?? `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
 function slugify(value) {

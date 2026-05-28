@@ -6,10 +6,9 @@
     "cwd": "E:\\develop\\AI\\remote_acp"
   },
   "server": {
-    "host": "127.0.0.1",
-    "port": 17890,
-    "wsPort": 17891,
-    "token": ""
+    "appServerUrl": "http://127.0.0.1:17892",
+    "appServerToken": "",
+    "appServerUserId": "default"
   },
   "permissions": {
     "exposeFileSystem": false,

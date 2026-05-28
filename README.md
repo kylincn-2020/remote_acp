@@ -5,7 +5,8 @@ Prototype UI plus an ACP connector for controlling local or remote coding agents
 ## Modules
 
 - `connector/`: standalone TypeScript ACP connector module
-- `miniprogram/`: standalone mini program page module
+- `miniapp_server/`: HTTP/SSE server that serves the miniapp and forwards requests to a connected connector
+- `miniapp/`: standalone miniapp page module
 - `prototype/`: static HTML prototype screens
 
 ## ACP connector
@@ -38,19 +39,46 @@ await connector.sendText({
 
 ```powershell
 cd connector
-npm run dev:http
+npm run dev
 ```
 
 Connector startup reads `config/config.json` from inside the `connector/` directory.
 
-## Run Miniprogram
+By default the connector opens an outbound WebSocket connection to
+`http://127.0.0.1:17892`. Override it with `server.appServerUrl` or
+`APP_SERVER_URL`. The miniapp server then forwards client HTTP/SSE requests
+to this connected connector.
+
+## Run Miniapp Server
 
 ```powershell
-cd miniprogram
+cd miniapp_server
 npm run dev
 ```
 
-Open `http://127.0.0.1:17892`.
+Open `http://127.0.0.1:17892`. The connector reconnects automatically, so the
+connector and `miniapp_server` can be started in either order.
+
+For multi-user testing, give each connector a distinct user id and open the
+miniapp with the same query parameter:
+
+```powershell
+cd connector
+$env:APP_SERVER_USER_ID="alice"
+npm run dev
+```
+
+Then open `http://127.0.0.1:17892/?userId=alice`.
+
+## Run Miniapp
+
+```powershell
+cd miniapp
+npm run dev
+```
+
+Open `http://127.0.0.1:17893`. This standalone static server still sends API
+requests through `miniapp_server` at `http://127.0.0.1:17892`.
 
 ## Checks
 
@@ -59,6 +87,9 @@ cd connector
 npm run check
 npm run build
 
-cd ..\miniprogram
+cd ..\miniapp_server
+npm run check
+
+cd ..\miniapp
 npm run check
 ```

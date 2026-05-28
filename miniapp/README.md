@@ -1,6 +1,6 @@
-# miniprogram
+# miniapp
 
-Standalone mini program page module for `remote_acp`.
+Standalone miniapp page module for `remote_acp`.
 
 ## Run
 
@@ -8,22 +8,23 @@ Standalone mini program page module for `remote_acp`.
 
 ```powershell
 cd connector
-npm run dev:http
+npm run dev
 ```
 
 Connector startup reads `config/config.json` in the connector module by default.
 
-2. Start the page:
+2. Start the standalone page:
 
 ```powershell
-cd miniprogram
+cd miniapp
 npm run dev
 ```
 
-3. Open `http://127.0.0.1:17892`.
+3. Open `http://127.0.0.1:17893`.
 
-The page talks directly to the connector HTTP API at `http://127.0.0.1:17890`.
-Use the top-right settings button if the connector URL or token is different.
+The standalone miniapp defaults to `http://127.0.0.1:17893` to avoid conflicting
+with `miniapp_server` on `17892`, but it still sends API requests through
+`miniapp_server` at `http://127.0.0.1:17892`.
 
 ## Current scope
 

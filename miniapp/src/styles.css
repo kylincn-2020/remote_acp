@@ -751,6 +751,12 @@ textarea {
   font-weight: 900;
 }
 
+.composer textarea:disabled,
+.send-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .sheet {
   width: min(390px, calc(100vw - 36px));
   border: 0;

@@ -1,5 +1,5 @@
 {
-  "name": "@remote-acp/miniprogram",
+  "name": "@remote-acp/miniapp",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

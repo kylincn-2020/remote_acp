@@ -2,8 +2,8 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 
-const host = process.env.MINIPROGRAM_HOST ?? "127.0.0.1";
-const port = process.env.MINIPROGRAM_PORT ? Number(process.env.MINIPROGRAM_PORT) : 17892;
+const host = process.env.MINIAPP_HOST ?? "127.0.0.1";
+const port = process.env.MINIAPP_PORT ? Number(process.env.MINIAPP_PORT) : 17893;
 const root = resolve(import.meta.dirname, "src");
 const vendorFiles = new Map([
   ["/vendor/marked.esm.js", resolve(import.meta.dirname, "node_modules/marked/lib/marked.esm.js")],
@@ -48,5 +48,5 @@ createServer(async (request, response) => {
     response.end("not found");
   }
 }).listen(port, host, () => {
-  console.log(`Mini program page listening on http://${host}:${port}`);
+  console.log(`Miniapp page listening on http://${host}:${port}`);
 });

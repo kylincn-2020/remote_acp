@@ -5,10 +5,9 @@ import type { AcpConnectorOptions, AcpTarget } from "./index.js";
 export type ConnectorConfig = {
   target?: AcpTargetConfig;
   server?: {
-    host?: string;
-    port?: number;
-    wsPort?: number;
-    token?: string;
+    appServerUrl?: string;
+    appServerToken?: string;
+    appServerUserId?: string;
   };
   permissions?: {
     exposeFileSystem?: boolean;
@@ -46,10 +45,10 @@ export type AcpTargetConfig =
       protocols?: string | string[];
     };
 
-export type ConnectorServerConfig = AcpConnectorOptions & {
-  host: string;
-  port: number;
-  token?: string;
+export type ConnectorAppConfig = AcpConnectorOptions & {
+  appServerUrl: string;
+  appServerToken?: string;
+  appServerUserId?: string;
 };
 
 export function defaultConnectorConfigPath() {
@@ -75,14 +74,13 @@ export async function writeConnectorConfig(config: ConnectorConfig, path = defau
   return normalized;
 }
 
-export async function loadConnectorServerConfig(kind: "http" | "ws") {
-  return resolveConnectorServerConfig(await readConnectorConfig(), kind);
+export async function loadConnectorAppConfig() {
+  return resolveConnectorAppConfig(await readConnectorConfig());
 }
 
-export function resolveConnectorServerConfig(
+export function resolveConnectorAppConfig(
   config: ConnectorConfig,
-  kind: "http" | "ws",
-): ConnectorServerConfig {
+): ConnectorAppConfig {
   const target = targetFromEnv() ?? targetFromConfig(config.target);
   if (!target) {
     throw new Error(
@@ -92,8 +90,6 @@ export function resolveConnectorServerConfig(
 
   const cwd = target.kind === "local" ? target.cwd : undefined;
   const allowedRoots = envStringArray("ACP_ALLOWED_ROOTS") ?? config.allowedRoots ?? (cwd ? [cwd] : []);
-  const port =
-    envNumber("PORT") ?? (kind === "ws" ? config.server?.wsPort : config.server?.port) ?? (kind === "ws" ? 17891 : 17890);
 
   return {
     target,
@@ -106,9 +102,11 @@ export function resolveConnectorServerConfig(
     ),
     clientName: process.env.ACP_CLIENT_NAME ?? config.client?.name,
     clientVersion: process.env.ACP_CLIENT_VERSION ?? config.client?.version,
-    token: process.env.CONNECTOR_TOKEN ?? config.server?.token,
-    host: process.env.HOST ?? config.server?.host ?? "127.0.0.1",
-    port,
+    appServerUrl:
+      process.env.APP_SERVER_URL ?? config.server?.appServerUrl ?? "http://127.0.0.1:17892",
+    appServerToken: process.env.APP_SERVER_TOKEN ?? config.server?.appServerToken,
+    appServerUserId:
+      process.env.APP_SERVER_USER_ID ?? config.server?.appServerUserId ?? "default",
   };
 }
 
@@ -239,10 +237,9 @@ function normalizeServer(value: unknown): ConnectorConfig["server"] {
     throw new Error("Connector server config must be an object");
   }
   return {
-    host: optionalString(value.host),
-    port: optionalNumber(value.port),
-    wsPort: optionalNumber(value.wsPort),
-    token: optionalString(value.token),
+    appServerUrl: optionalString(value.appServerUrl),
+    appServerToken: optionalString(value.appServerToken),
+    appServerUserId: optionalString(value.appServerUserId),
   };
 }
 
@@ -279,11 +276,6 @@ function envBoolean(name: string, fallback: boolean) {
     return fallback;
   }
   return value === "1" || value.toLowerCase() === "true";
-}
-
-function envNumber(name: string) {
-  const value = process.env[name];
-  return value ? Number(value) : undefined;
 }
 
 function envStringArray(name: string) {
