@@ -1245,8 +1245,8 @@ function renderSourceItem(item) {
 
 function applySessionEvent(event, options = {}) {
   if (event.kind === "message") {
-    const text = event.text.trim();
-    if (!text) return;
+    const text = String(event.text || "");
+    if (!text.trim()) return;
     appendMessage(event.role, text, {
       merge: !options.replay,
       messageId: event.messageId,
@@ -1548,19 +1548,6 @@ function contentToText(content) {
 function mergeText(previous, next) {
   if (!previous) return next;
   if (!next) return previous;
-  const left = previous.at(-1);
-  const right = next.at(0);
-  const needsSpace =
-    /[A-Za-z0-9.!?]$/.test(previous) &&
-    /^[A-Za-z0-9]/.test(next);
-  const alreadySeparated =
-    /\s$/.test(previous) ||
-    /^\s/.test(next) ||
-    /[([{/"'“‘]$/.test(previous) ||
-    /^[,.;:!?，。！？、；：）\]}）]/.test(next);
-  if (needsSpace && !alreadySeparated && left !== right) {
-    return `${previous} ${next}`;
-  }
   return previous + next;
 }
 

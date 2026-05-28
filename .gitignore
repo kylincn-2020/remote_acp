@@ -13,3 +13,4 @@ pnpm-debug.log*
 Thumbs.db
 
 connector/config/config.json
+connector/logs/

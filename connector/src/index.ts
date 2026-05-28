@@ -389,7 +389,8 @@ function openLocalTransport(
 ): { stream: acp.Stream; cleanup: TransportCleanup } {
   const transportLogger = logger?.child("local-transport");
   transportLogger?.info(`starting local ACP process ${target.command}`);
-  const child = spawn(target.command, target.args ?? [], {
+  const launch = localProcessLaunch(target);
+  const child = spawn(launch.command, launch.args, {
     cwd: target.cwd,
     env: {
       ...process.env,
@@ -422,6 +423,33 @@ function openLocalTransport(
     stream,
     cleanup: () => stopChild(child),
   };
+}
+
+function localProcessLaunch(target: Extract<AcpTarget, { kind: "local" }>) {
+  const args = target.args ?? [];
+  if (process.platform !== "win32" || hasExecutableExtension(target.command)) {
+    return { command: target.command, args };
+  }
+
+  return {
+    command: process.env.ComSpec ?? "cmd.exe",
+    args: ["/d", "/s", "/c", windowsCommandLine(target.command, args)],
+  };
+}
+
+function hasExecutableExtension(command: string) {
+  return /\.(?:exe|com)$/i.test(command);
+}
+
+function windowsCommandLine(command: string, args: string[]) {
+  return [command, ...args].map(quoteWindowsCommandArg).join(" ");
+}
+
+function quoteWindowsCommandArg(value: string) {
+  if (!/[()\[\]{}^=;!'+,`~\s"&|<>]/.test(value)) {
+    return value;
+  }
+  return `"${value.replace(/(\\*)"/g, '$1$1\\"').replace(/\\+$/g, "$&$&")}"`;
 }
 
 async function openWebSocketTransport(
