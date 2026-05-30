@@ -73,18 +73,12 @@ document.querySelector("#connectorTokenInput").value = state.token;
 document.querySelectorAll("[data-home-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     switchHomeTab(button.dataset.homeTab);
-    if (button.dataset.homeTab === "approval") {
-      loadPermissions();
-    }
   });
 });
 
 document.querySelectorAll("[data-approval-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     state.activeApprovalTab = button.dataset.approvalTab;
-    if (state.activeApprovalTab === "todo") {
-      loadPermissions();
-    }
     renderApproval();
   });
 });
@@ -206,7 +200,7 @@ function showView(name) {
 }
 
 async function loadHome() {
-  await Promise.allSettled([loadAgent(), loadProjects(), loadPermissions()]);
+  await Promise.allSettled([loadAgent(), loadProjects()]);
   renderAgents();
 }
 
@@ -252,20 +246,6 @@ function renderApproval() {
   empty.style.padding = "16px";
   empty.textContent = "暂无已处理的 Agent 审批";
   approvalList.replaceChildren(empty);
-}
-
-async function loadPermissions() {
-  state.loadingPermissions = true;
-  renderPermissionApprovals();
-  try {
-    const result = await api("/permissions");
-    state.permissions = Array.isArray(result.permissions) ? result.permissions : [];
-  } catch (error) {
-    state.permissions = [{ error: error.message }];
-  } finally {
-    state.loadingPermissions = false;
-    renderPermissionApprovals();
-  }
 }
 
 async function mountCurrentSessionPermissions() {
